@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paciência Klondike</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #228B22; /* Verde floresta para o fundo */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px; /* Largura máxima para o container do jogo */
+        }
+
+        #header {
+            background-color: #333; /* Cor escura para o cabeçalho */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #header-stats span {
+            margin-right: 20px;
+            font-size: 1.1em;
+        }
+
+        #header-buttons button {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 1em;
+        }
+
+        #header-buttons button:hover {
+            background-color: #777;
+        }
+
+        #top-piles {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .pile {
+            border: 2px dashed rgba(255, 255, 255, 0.3); /* Borda tracejada para pilhas vazias */
+            border-radius: 8px;
+            width: 100px; /* Largura padrão para uma carta */
+            height: 140px; /* Altura padrão para uma carta */
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        #stock-pile, #waste-pile {
+            margin-right: 20px; /* Espaçamento entre descarte e fundações */
+        }
+
+        #foundation-piles {
+            display: flex;
+            gap: 10px;
+            margin-left: auto; /* Empurra as fundações para a direita */
+        }
+
+        #tableau-piles {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .tableau-pile {
+            flex: 1;
+            min-width: 110px; /* Reduzido de 100px para ficar apenas um pouco maior que as cartas */
+            max-width: 110px; /* Adicionado para limitar a largura */
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            height: 100%; /* Altura flexível para o tableau */
+            min-height: 140px; /* Altura mínima para o tableau */
+            position: relative;
+        }
+
+        /* Estilos para as cartas */
+        .card {
+            width: 100px;
+            height: 140px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            background-color: white;
+            position: absolute;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-weight: bold;
+            user-select: none;
+            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .card.face-down {
+            background: 
+                linear-gradient(45deg, #8B0000 25%, #CD5C5C 25%, #CD5C5C 50%, #8B0000 50%, #8B0000 75%, #CD5C5C 75%),
+                linear-gradient(-45deg, #8B0000 25%, #CD5C5C 25%, #CD5C5C 50%, #8B0000 50%, #8B0000 75%, #CD5C5C 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        .card.face-down::before {
+            display: none; /* Remove o retângulo cinza */
+        }
+
+        .card.red {
+            color: #d32f2f;
+        }
+
+        .card.black {
+            color: #333;
+        }
+
+        .card-top {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1;
+        }
+
+        .card-bottom {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            transform: rotate(180deg);
+            line-height: 1;
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+        }
+
+        .card-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .card-suit {
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        .card-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px; /* Aumentado em 50% (era 24px) */
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .card.dragging {
+            opacity: 0.7;
+            z-index: 1000;
+        }
+
+        .card.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+        }
+
+        /* Posicionamento das cartas no tableau */
+        .tableau-pile .card {
+            position: relative;
+            margin-bottom: -120px; /* Sobreposição das cartas */
+        }
+
+        .tableau-pile .card:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Estilos para pilhas vazias */
+        .pile.empty::before {
+            display: none; /* Remove o círculo */
+        }
+
+        #foundation-0.empty::before { 
+            content: "♠"; 
+            font-size: 24px; 
+            color: rgba(255, 255, 255, 0.2); /* 20% de opacidade */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: block;
+        }
+        #foundation-1.empty::before { 
+            content: "♥"; 
+            font-size: 24px; 
+            color: rgba(255, 255, 255, 0.2); /* 20% de opacidade */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: block;
+        }
+        #foundation-2.empty::before { 
+            content: "♦"; 
+            font-size: 24px; 
+            color: rgba(255, 255, 255, 0.2); /* 20% de opacidade */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: block;
+        }
+        #foundation-3.empty::before { 
+            content: "♣"; 
+            font-size: 24px; 
+            color: rgba(255, 255, 255, 0.2); /* 20% de opacidade */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: block;
+        }
+
+        /* Estilos do menu modal */
+        #menu-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        #menu-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        #menu-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        #menu-close:hover {
+            color: #333;
+        }
+
+        .menu-section {
+            margin-bottom: 25px;
+        }
+
+        .menu-section h3 {
+            color: #333;
+            border-bottom: 2px solid #228B22;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .menu-btn {
+            background-color: #228B22;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .menu-btn:hover {
+            background-color: #1e7a1e;
+        }
+
+        .menu-btn.danger {
+            background-color: #d32f2f;
+        }
+
+        .menu-btn.danger:hover {
+            background-color: #b71c1c;
+        }
+
+        .scoring-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .scoring-table th, .scoring-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .scoring-table th {
+            background-color: #f2f2f2;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="header">
+            <div id="header-stats">
+                <span>Pontuação: <span id="score">0</span></span>
+                <span>Movimentos: <span id="moves">0</span></span>
+                <span>Tempo: <span id="time">00:00</span></span>
+            </div>
+            <div id="header-buttons">
+                <button id="undo-button">Desfazer</button>
+                <button id="menu-button">Menu</button>
+            </div>
+        </div>
+
+        <div id="top-piles">
+            <div id="stock-pile" class="pile"></div>
+            <div id="waste-pile" class="pile"></div>
+            <div id="foundation-piles">
+                <div id="foundation-0" class="pile"></div>
+                <div id="foundation-1" class="pile"></div>
+                <div id="foundation-2" class="pile"></div>
+                <div id="foundation-3" class="pile"></div>
+            </div>
+        </div>
+
+        <div id="tableau-piles">
+            <div id="tableau-0" class="tableau-pile"></div>
+            <div id="tableau-1" class="tableau-pile"></div>
+            <div id="tableau-2" class="tableau-pile"></div>
+            <div id="tableau-3" class="tableau-pile"></div>
+            <div id="tableau-4" class="tableau-pile"></div>
+            <div id="tableau-5" class="tableau-pile"></div>
+            <div id="tableau-6" class="tableau-pile"></div>
+        </div>
+    </div>
+
+    <!-- Menu Modal -->
+    <div id="menu-modal">
+        <div id="menu-content">
+            <span id="menu-close">&times;</span>
+            
+            <div class="menu-section">
+                <h3>Como Jogar Paciência Klondike</h3>
+                <p><strong>Objetivo:</strong> Mover todas as cartas para as quatro fundações, organizadas por naipe em ordem crescente (Ás ao Rei).</p>
+                
+                <p><strong>Regras Básicas:</strong></p>
+                <ul>
+                    <li><strong>Tableau:</strong> Organize cartas em ordem decrescente alternando cores (vermelho sobre preto, preto sobre vermelho).</li>
+                    <li><strong>Fundações:</strong> Construa sequências do Ás ao Rei por naipe (♠ ♥ ♦ ♣).</li>
+                    <li><strong>Maço de Compra:</strong> Clique para revelar novas cartas. Quando vazio, clique novamente para reciclar.</li>
+                    <li><strong>Movimentação:</strong> Arraste cartas ou clique para selecionar e depois clique no destino.</li>
+                    <li><strong>Duplo Clique:</strong> Move automaticamente cartas elegíveis para as fundações.</li>
+                </ul>
+            </div>
+
+            <div class="menu-section">
+                <h3>Sistema de Pontuação</h3>
+                <table class="scoring-table">
+                    <tr><th>Ação</th><th>Pontos</th></tr>
+                    <tr><td>Mover carta do Descarte para Tableau</td><td>+5</td></tr>
+                    <tr><td>Mover carta do Descarte para Fundação</td><td>+10</td></tr>
+                    <tr><td>Mover carta do Tableau para Fundação</td><td>+10</td></tr>
+                    <tr><td>Virar carta no Tableau</td><td>+5</td></tr>
+                    <tr><td>Mover carta da Fundação para Tableau</td><td>-15</td></tr>
+                    <tr><td>Reciclar Maço de Compra</td><td>-100</td></tr>
+                </table>
+            </div>
+
+            <div class="menu-section">
+                <h3>Controles</h3>
+                <ul>
+                    <li><strong>Arrastar e Soltar:</strong> Clique e arraste cartas para movê-las.</li>
+                    <li><strong>Clique Simples:</strong> Selecione uma carta e clique no destino.</li>
+                    <li><strong>Duplo Clique:</strong> Move automaticamente para fundação se possível.</li>
+                    <li><strong>Desfazer:</strong> Use o botão "Desfazer" para voltar o último movimento.</li>
+                </ul>
+            </div>
+
+            <div class="menu-section">
+                <h3>Créditos</h3>
+                <p>Paciência Klondike desenvolvida como jogo offline em HTML/CSS/JavaScript.</p>
+                <p>Este jogo se trata de um experimento feito por <strong>Rodrigo Oliveira</strong> com uso de IA.</p>
+                <p>Contato: <strong>rooliveira@gmail.com</strong></p>
+                <p>Criado com cartas estilizadas em CSS e caracteres especiais Unicode para os naipes.</p>
+                <p>Versão: 1.0 | Compatível com navegadores modernos</p>
+            </div>
+
+            <div class="menu-buttons">
+                <button class="menu-btn" id="new-game-btn">Nova Partida</button>
+                <button class="menu-btn" id="close-menu-btn">Fechar Menu</button>
+                <button class="menu-btn danger" id="reset-score-btn">Resetar Pontuação</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Definição das cartas e naipes
+        const SUITS = {
+            SPADES: { symbol: '♠', color: 'black', name: 'spades' },
+            HEARTS: { symbol: '♥', color: 'red', name: 'hearts' },
+            DIAMONDS: { symbol: '♦', color: 'red', name: 'diamonds' },
+            CLUBS: { symbol: '♣', color: 'black', name: 'clubs' }
+        };
+
+        const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        // Função para criar uma carta HTML
+        function createCardElement(card) {
+            const cardElement = document.createElement('div');
+            cardElement.className = `card ${card.color}`;
+            cardElement.dataset.suit = card.suit.name;
+            cardElement.dataset.value = card.value;
+            cardElement.dataset.cardId = card.id;
+
+            if (card.faceUp) {
+                cardElement.innerHTML = `
+                    <div class="card-top">
+                        <div class="card-value">${card.value}</div>
+                        <div class="card-suit">${card.suit.symbol}</div>
+                    </div>
+                    <div class="card-center">${card.suit.symbol}</div>
+                    <div class="card-bottom">
+                        <div class="card-value">${card.value}</div>
+                        <div class="card-suit">${card.suit.symbol}</div>
+                    </div>
+                `;
+            } else {
+                cardElement.classList.add('face-down');
+                cardElement.innerHTML = '';
+            }
+
+            return cardElement;
+        }
+
+        // Função para criar um baralho completo
+        function createDeck() {
+            const deck = [];
+            let cardId = 0;
+            
+            Object.values(SUITS).forEach(suit => {
+                VALUES.forEach(value => {
+                    deck.push({
+                        id: cardId++,
+                        suit: suit,
+                        value: value,
+                        color: suit.color,
+                        faceUp: false
+                    });
+                });
+            });
+            
+            return deck;
+        }
+
+        // Função para embaralhar o baralho
+        function shuffleDeck(deck) {
+            const shuffled = [...deck];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Estado do jogo
+        let gameState = {
+            stock: [],
+            waste: [],
+            foundations: [[], [], [], []],
+            tableau: [[], [], [], [], [], [], []],
+            score: 0,
+            moves: 0,
+            startTime: Date.now(),
+            gameTimer: null,
+            moveHistory: [] // Histórico para desfazer movimentos
+        };
+
+        // Função para inicializar o jogo
+        function initializeGame() {
+            const deck = shuffleDeck(createDeck());
+            
+            // Distribuir cartas para o tableau
+            let cardIndex = 0;
+            for (let col = 0; col < 7; col++) {
+                for (let row = 0; row <= col; row++) {
+                    const card = deck[cardIndex++];
+                    if (row === col) {
+                        card.faceUp = true; // Última carta de cada coluna fica virada para cima
+                    }
+                    gameState.tableau[col].push(card);
+                }
+            }
+            
+            // Resto das cartas vai para o stock
+            gameState.stock = deck.slice(cardIndex);
+            
+            // Resetar outros estados
+            gameState.waste = [];
+            gameState.foundations = [[], [], [], []];
+            gameState.score = 0;
+            gameState.moves = 0;
+            gameState.startTime = Date.now();
+            gameState.moveHistory = [];
+            
+            renderGame();
+            startTimer();
+        }
+
+        // Função para renderizar o jogo
+        function renderGame() {
+            // Renderizar stock pile
+            const stockPile = document.getElementById('stock-pile');
+            stockPile.innerHTML = '';
+            stockPile.classList.remove('empty');
+            if (gameState.stock.length > 0) {
+                const topCard = gameState.stock[gameState.stock.length - 1];
+                const cardElement = createCardElement(topCard);
+                // Não adicionar event listeners para cartas viradas para baixo no stock
+                stockPile.appendChild(cardElement);
+            } else {
+                stockPile.classList.add('empty');
+            }
+
+            // Renderizar waste pile
+            const wastePile = document.getElementById('waste-pile');
+            wastePile.innerHTML = '';
+            wastePile.classList.remove('empty');
+            if (gameState.waste.length > 0) {
+                const topCard = gameState.waste[gameState.waste.length - 1];
+                const cardElement = createCardElement(topCard);
+                addCardEventListeners(cardElement, topCard, 'waste', 0);
+                wastePile.appendChild(cardElement);
+            } else {
+                wastePile.classList.add('empty');
+            }
+
+            // Renderizar foundations
+            for (let i = 0; i < 4; i++) {
+                const foundationPile = document.getElementById(`foundation-${i}`);
+                foundationPile.innerHTML = '';
+                if (gameState.foundations[i].length > 0) {
+                    const topCard = gameState.foundations[i][gameState.foundations[i].length - 1];
+                    const cardElement = createCardElement(topCard);
+                    addCardEventListeners(cardElement, topCard, 'foundation', i);
+                    foundationPile.appendChild(cardElement);
+                    foundationPile.classList.remove('empty');
+                } else {
+                    foundationPile.classList.add('empty');
+                }
+            }
+
+            // Renderizar tableau
+            for (let i = 0; i < 7; i++) {
+                const tableauPile = document.getElementById(`tableau-${i}`);
+                tableauPile.innerHTML = '';
+                gameState.tableau[i].forEach((card, index) => {
+                    const cardElement = createCardElement(card);
+                    cardElement.style.top = `${index * 20}px`;
+                    
+                    // Só adicionar event listeners se a carta estiver virada para cima
+                    if (card.faceUp) {
+                        addCardEventListeners(cardElement, card, 'tableau', i, index);
+                    }
+                    
+                    tableauPile.appendChild(cardElement);
+                });
+                if (gameState.tableau[i].length === 0) {
+                    tableauPile.classList.add('empty');
+                } else {
+                    tableauPile.classList.remove('empty');
+                }
+            }
+
+            // Atualizar estatísticas
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('moves').textContent = gameState.moves;
+        }
+
+        // Função para iniciar o timer
+        function startTimer() {
+            if (gameState.gameTimer) {
+                clearInterval(gameState.gameTimer);
+            }
+            
+            gameState.gameTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('time').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // Função para salvar estado para desfazer
+        function saveGameState() {
+            const currentState = {
+                stock: JSON.parse(JSON.stringify(gameState.stock)),
+                waste: JSON.parse(JSON.stringify(gameState.waste)),
+                foundations: JSON.parse(JSON.stringify(gameState.foundations)),
+                tableau: JSON.parse(JSON.stringify(gameState.tableau)),
+                score: gameState.score,
+                moves: gameState.moves
+            };
+            gameState.moveHistory.push(currentState);
+            
+            // Limitar histórico a 50 movimentos para economizar memória
+            if (gameState.moveHistory.length > 50) {
+                gameState.moveHistory.shift();
+            }
+        }
+
+        // Função para desfazer último movimento
+        function undoLastMove() {
+            if (gameState.moveHistory.length > 0) {
+                const previousState = gameState.moveHistory.pop();
+                gameState.stock = previousState.stock;
+                gameState.waste = previousState.waste;
+                gameState.foundations = previousState.foundations;
+                gameState.tableau = previousState.tableau;
+                gameState.score = previousState.score;
+                gameState.moves = previousState.moves;
+                
+                renderGame();
+                deselectCard();
+            }
+        }
+
+        // Sistema de pontuação aprimorado
+        const SCORING = {
+            WASTE_TO_TABLEAU: 5,
+            WASTE_TO_FOUNDATION: 10,
+            TABLEAU_TO_FOUNDATION: 10,
+            FOUNDATION_TO_TABLEAU: -15,
+            FLIP_CARD: 5,
+            RECYCLE_WASTE: -100, // Penalidade por reciclar waste (pode ser modificada)
+            TIME_BONUS_THRESHOLD: 30000, // 30 segundos para bônus de tempo
+            TIME_BONUS: 2 // Pontos por segundo restante
+        };
+
+        // Função para calcular pontuação de movimento
+        function calculateMoveScore(sourceType, targetType, isFlip = false, isRecycle = false) {
+            if (isRecycle) return SCORING.RECYCLE_WASTE;
+            if (isFlip) return SCORING.FLIP_CARD;
+            
+            if (sourceType === 'waste' && targetType === 'tableau') return SCORING.WASTE_TO_TABLEAU;
+            if (sourceType === 'waste' && targetType === 'foundation') return SCORING.WASTE_TO_FOUNDATION;
+            if (sourceType === 'tableau' && targetType === 'foundation') return SCORING.TABLEAU_TO_FOUNDATION;
+            if (sourceType === 'foundation' && targetType === 'tableau') return SCORING.FOUNDATION_TO_TABLEAU;
+            
+            return 0;
+        }
+
+        // Função para verificar se um movimento é válido
+        function isValidMove(card, targetPile, targetType) {
+            if (targetType === 'foundation') {
+                const foundationIndex = parseInt(targetPile.id.split('-')[1]);
+                const foundation = gameState.foundations[foundationIndex];
+                
+                if (foundation.length === 0) {
+                    return card.value === 'A';
+                } else {
+                    const topCard = foundation[foundation.length - 1];
+                    return card.suit.name === topCard.suit.name && 
+                           getCardNumericValue(card.value) === getCardNumericValue(topCard.value) + 1;
+                }
+            } else if (targetType === 'tableau') {
+                const tableauIndex = parseInt(targetPile.id.split('-')[1]);
+                const tableau = gameState.tableau[tableauIndex];
+                
+                if (tableau.length === 0) {
+                    return card.value === 'K';
+                } else {
+                    const topCard = tableau[tableau.length - 1];
+                    return card.color !== topCard.color && 
+                           getCardNumericValue(card.value) === getCardNumericValue(topCard.value) - 1;
+                }
+            }
+            return false;
+        }
+
+        // Função para obter o valor numérico de uma carta
+        function getCardNumericValue(value) {
+            if (value === 'A') return 1;
+            if (value === 'J') return 11;
+            if (value === 'Q') return 12;
+            if (value === 'K') return 13;
+            return parseInt(value);
+        }
+
+        // Função para virar carta no tableau
+        function flipTableauCard(tableauIndex) {
+            const tableau = gameState.tableau[tableauIndex];
+            if (tableau.length > 0) {
+                const topCard = tableau[tableau.length - 1];
+                if (!topCard.faceUp) {
+                    topCard.faceUp = true;
+                    gameState.score += calculateMoveScore('', '', true); // Pontos por virar carta
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Função para mover carta(s) - versão atualizada com pontuação
+        function moveCard(sourceType, sourceIndex, targetType, targetIndex, cardIndex = -1) {
+            // Salvar estado antes do movimento
+            saveGameState();
+            
+            let sourceCards = [];
+            let movedCards = [];
+
+            // Determinar cartas de origem
+            if (sourceType === 'waste') {
+                if (gameState.waste.length > 0) {
+                    sourceCards = [gameState.waste.pop()];
+                }
+            } else if (sourceType === 'foundation') {
+                if (gameState.foundations[sourceIndex].length > 0) {
+                    sourceCards = [gameState.foundations[sourceIndex].pop()];
+                }
+            } else if (sourceType === 'tableau') {
+                const tableau = gameState.tableau[sourceIndex];
+                if (cardIndex === -1) {
+                    cardIndex = tableau.length - 1;
+                }
+                if (cardIndex >= 0 && cardIndex < tableau.length) {
+                    sourceCards = tableau.splice(cardIndex);
+                }
+            }
+
+            if (sourceCards.length === 0) {
+                gameState.moveHistory.pop(); // Remover estado salvo se movimento inválido
+                return false;
+            }
+
+            // Verificar se o movimento é válido para a primeira carta
+            const firstCard = sourceCards[0];
+            let targetPile;
+            
+            if (targetType === 'foundation') {
+                targetPile = document.getElementById(`foundation-${targetIndex}`);
+            } else if (targetType === 'tableau') {
+                targetPile = document.getElementById(`tableau-${targetIndex}`);
+            }
+
+            if (!isValidMove(firstCard, targetPile, targetType)) {
+                // Reverter movimento inválido
+                if (sourceType === 'waste') {
+                    gameState.waste.push(...sourceCards);
+                } else if (sourceType === 'foundation') {
+                    gameState.foundations[sourceIndex].push(...sourceCards);
+                } else if (sourceType === 'tableau') {
+                    gameState.tableau[sourceIndex].splice(cardIndex, 0, ...sourceCards);
+                }
+                gameState.moveHistory.pop(); // Remover estado salvo se movimento inválido
+                return false;
+            }
+
+            // Executar movimento válido
+            if (targetType === 'foundation') {
+                gameState.foundations[targetIndex].push(...sourceCards);
+            } else if (targetType === 'tableau') {
+                gameState.tableau[targetIndex].push(...sourceCards);
+            }
+
+            // Calcular e aplicar pontuação
+            const moveScore = calculateMoveScore(sourceType, targetType);
+            gameState.score += moveScore;
+
+            // Virar carta no tableau de origem se necessário
+            if (sourceType === 'tableau') {
+                flipTableauCard(sourceIndex);
+            }
+
+            gameState.moves++;
+            return true;
+        }
+
+        // Função para verificar vitória
+        function checkWin() {
+            return gameState.foundations.every(foundation => foundation.length === 13);
+        }
+
+        // Função para auto-mover cartas para foundations (duplo clique)
+        function autoMoveToFoundation(card, sourceType, sourceIndex) {
+            for (let i = 0; i < 4; i++) {
+                const foundation = gameState.foundations[i];
+                if (foundation.length === 0 && card.value === 'A') {
+                    if (moveCard(sourceType, sourceIndex, 'foundation', i)) {
+                        return true;
+                    }
+                } else if (foundation.length > 0) {
+                    const topCard = foundation[foundation.length - 1];
+                    if (card.suit.name === topCard.suit.name && 
+                        getCardNumericValue(card.value) === getCardNumericValue(topCard.value) + 1) {
+                        if (moveCard(sourceType, sourceIndex, 'foundation', i)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Variáveis para controle de movimento
+        let selectedCard = null;
+        let selectedSource = null;
+        let draggedCard = null;
+        let draggedSource = null;
+
+        // Função para adicionar event listeners às cartas
+        function addCardEventListeners(cardElement, card, sourceType, sourceIndex, cardIndex = -1) {
+            // Drag and Drop
+            cardElement.draggable = true;
+            
+            cardElement.addEventListener('dragstart', (e) => {
+                draggedCard = card;
+                draggedSource = { type: sourceType, index: sourceIndex, cardIndex: cardIndex };
+                cardElement.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            cardElement.addEventListener('dragend', (e) => {
+                cardElement.classList.remove('dragging');
+                draggedCard = null;
+                draggedSource = null;
+            });
+
+            // Click para seleção
+            cardElement.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                if (selectedCard === card) {
+                    // Desselecionar se clicar na mesma carta
+                    deselectCard();
+                } else if (selectedCard) {
+                    // Tentar mover carta selecionada para esta posição
+                    const targetType = sourceType;
+                    const targetIndex = sourceType === 'tableau' ? sourceIndex : 
+                                      sourceType === 'foundation' ? sourceIndex : -1;
+                    
+                    if (targetType !== 'waste' && targetIndex !== -1) {
+                        if (moveCard(selectedSource.type, selectedSource.index, targetType, targetIndex, selectedSource.cardIndex)) {
+                            renderGame();
+                            checkWinCondition();
+                        }
+                    }
+                    deselectCard();
+                } else {
+                    // Selecionar carta
+                    selectCard(card, { type: sourceType, index: sourceIndex, cardIndex: cardIndex });
+                }
+            });
+
+            // Duplo clique para auto-mover para foundation
+            cardElement.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                if (autoMoveToFoundation(card, sourceType, sourceIndex)) {
+                    renderGame();
+                    checkWinCondition();
+                }
+                deselectCard();
+            });
+        }
+
+        // Função para selecionar carta
+        function selectCard(card, source) {
+            deselectCard(); // Limpar seleção anterior
+            selectedCard = card;
+            selectedSource = source;
+            
+            // Encontrar elemento da carta e adicionar classe selected
+            const cardElements = document.querySelectorAll('.card');
+            cardElements.forEach(el => {
+                if (el.dataset.cardId == card.id) {
+                    el.classList.add('selected');
+                }
+            });
+        }
+
+        // Função para desselecionar carta
+        function deselectCard() {
+            selectedCard = null;
+            selectedSource = null;
+            
+            const selectedElements = document.querySelectorAll('.card.selected');
+            selectedElements.forEach(el => el.classList.remove('selected'));
+        }
+
+        // Função para adicionar event listeners às pilhas (drop zones)
+        function addPileEventListeners() {
+            // Foundations
+            for (let i = 0; i < 4; i++) {
+                const foundation = document.getElementById(`foundation-${i}`);
+                addDropZoneListeners(foundation, 'foundation', i);
+            }
+
+            // Tableau
+            for (let i = 0; i < 7; i++) {
+                const tableau = document.getElementById(`tableau-${i}`);
+                addDropZoneListeners(tableau, 'tableau', i);
+            }
+        }
+
+        // Função para adicionar listeners de drop zone
+        function addDropZoneListeners(element, type, index) {
+            element.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+
+            element.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (draggedCard && draggedSource) {
+                    if (moveCard(draggedSource.type, draggedSource.index, type, index, draggedSource.cardIndex)) {
+                        renderGame();
+                        checkWinCondition();
+                    }
+                }
+            });
+
+            // Click em pilha vazia para mover carta selecionada
+            element.addEventListener('click', (e) => {
+                if (selectedCard && selectedSource) {
+                    if (moveCard(selectedSource.type, selectedSource.index, type, index, selectedSource.cardIndex)) {
+                        renderGame();
+                        checkWinCondition();
+                    }
+                    deselectCard();
+                }
+            });
+        }
+
+        // Função para verificar condição de vitória
+        function checkWinCondition() {
+            if (checkWin()) {
+                clearInterval(gameState.gameTimer);
+                setTimeout(() => {
+                    alert('Parabéns! Você venceu o jogo!');
+                }, 100);
+            }
+        }
+
+        // Event listeners básicos
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeGame();
+            addPileEventListeners();
+            
+            // Event listener para o stock pile
+            document.getElementById('stock-pile').addEventListener('click', () => {
+                saveGameState(); // Salvar estado antes da ação
+                
+                if (gameState.stock.length > 0) {
+                    const card = gameState.stock.pop();
+                    card.faceUp = true;
+                    gameState.waste.push(card);
+                    gameState.moves++;
+                    renderGame();
+                } else if (gameState.waste.length > 0) {
+                    // Reciclar waste para stock
+                    gameState.stock = gameState.waste.reverse();
+                    gameState.stock.forEach(card => card.faceUp = false);
+                    gameState.waste = [];
+                    gameState.score += calculateMoveScore('', '', false, true); // Penalidade por reciclar
+                    gameState.moves++;
+                    renderGame();
+                } else {
+                    gameState.moveHistory.pop(); // Remover estado salvo se nenhuma ação foi realizada
+                }
+            });
+
+            // Event listener para o botão de desfazer
+            document.getElementById('undo-button').addEventListener('click', () => {
+                undoLastMove();
+            });
+
+            // Event listeners para o menu
+            document.getElementById('menu-button').addEventListener('click', () => {
+                document.getElementById('menu-modal').style.display = 'block';
+            });
+
+            document.getElementById('menu-close').addEventListener('click', () => {
+                document.getElementById('menu-modal').style.display = 'none';
+            });
+
+            document.getElementById('close-menu-btn').addEventListener('click', () => {
+                document.getElementById('menu-modal').style.display = 'none';
+            });
+
+            document.getElementById('new-game-btn').addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja iniciar uma nova partida? O progresso atual será perdido.')) {
+                    initializeGame();
+                    document.getElementById('menu-modal').style.display = 'none';
+                }
+            });
+
+            document.getElementById('reset-score-btn').addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja resetar apenas a pontuação?')) {
+                    gameState.score = 0;
+                    renderGame();
+                    document.getElementById('menu-modal').style.display = 'none';
+                }
+            });
+
+            // Fechar menu clicando fora dele
+            window.addEventListener('click', (e) => {
+                const modal = document.getElementById('menu-modal');
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+
+            // Atalhos de teclado
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('menu-modal').style.display = 'none';
+                    deselectCard();
+                } else if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undoLastMove();
+                } else if (e.key === 'F1') {
+                    e.preventDefault();
+                    document.getElementById('menu-modal').style.display = 'block';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
+
