@@ -6,22 +6,23 @@
     <title>Paciência Klondike</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #228B22; /* Verde floresta para o fundo */
             margin: 0;
-            padding: 20px;
+            padding: 0; /* Removendo padding */
             box-sizing: border-box;
+            overflow: hidden;
         }
 
         #game-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 0; /* Removendo gap */
             width: 100%;
-            max-width: 1200px; /* Largura máxima para o container do jogo */
+            height: 100vh;
+            max-width: none; /* Removendo largura máxima */
         }
 
         #header {
@@ -54,6 +55,15 @@
 
         #header-buttons button:hover {
             background-color: #777;
+        }
+
+        /* Área de jogo com padding para as cartas */
+        #game-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         #top-piles {
@@ -246,7 +256,87 @@
             display: block;
         }
 
-        /* Estilos do menu modal */
+        /* Estilos da tela inicial */
+        .main-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2e7d32, #388e3c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .main-menu-content {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .main-menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+        }
+
+        .main-menu-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(45deg, #4caf50, #66bb6a);
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .main-menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(45deg, #66bb6a, #4caf50);
+        }
+
+        .main-menu-btn.secondary {
+            background: linear-gradient(45deg, #757575, #9e9e9e);
+        }
+
+        .main-menu-btn.secondary:hover {
+            background: linear-gradient(45deg, #9e9e9e, #757575);
+        }
+
+        .game-area {
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #2e7d32, #388e3c); /* Restaurando o fundo verde */
+        }
+
+        .header {
+            background: #1b5e20; /* Verde escuro para o cabeçalho */
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
         #menu-modal {
             display: none;
             position: fixed;
@@ -259,16 +349,17 @@
         }
 
         #menu-content {
-            background-color: white;
+            background: white;
             margin: 5% auto;
-            padding: 30px;
+            padding: 20px;
             border-radius: 10px;
-            width: 90%;
+            width: 80%;
             max-width: 600px;
             max-height: 80vh;
             overflow-y: auto;
             position: relative;
-        }
+            color: #333; /* Texto preto para contraste com fundo branco */
+        }     }
 
         #menu-close {
             position: absolute;
@@ -345,7 +436,25 @@
 <body>
     <div id="game-container">
         <div id="header">
-            <div id="header-stats">
+            <!-- Tela Inicial -->
+    <div id="main-menu" class="main-menu">
+        <div class="main-menu-content">
+            <h1 class="game-title">KLONDIKE SOLITAIRE</h1>
+            <div class="main-menu-buttons">
+                <button class="main-menu-btn" id="easy-game-btn">Partida Fácil</button>
+                <button class="main-menu-btn" id="medium-game-btn">Partida Média</button>
+                <button class="main-menu-btn" id="hard-game-btn">Partida Difícil</button>
+                <button class="main-menu-btn" id="random-game-btn">Partida Aleatória</button>
+                <button class="main-menu-btn secondary" id="instructions-btn">Instruções</button>
+                <button class="main-menu-btn secondary" id="credits-btn">Créditos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Área de Jogo -->
+    <div id="game-area" class="game-area" style="display: none;">
+        <div class="header">
+            <div id="stats">
                 <span>Pontuação: <span id="score">0</span></span>
                 <span>Movimentos: <span id="moves">0</span></span>
                 <span>Tempo: <span id="time">00:00</span></span>
@@ -356,25 +465,27 @@
             </div>
         </div>
 
-        <div id="top-piles">
-            <div id="stock-pile" class="pile"></div>
-            <div id="waste-pile" class="pile"></div>
-            <div id="foundation-piles">
-                <div id="foundation-0" class="pile"></div>
-                <div id="foundation-1" class="pile"></div>
-                <div id="foundation-2" class="pile"></div>
-                <div id="foundation-3" class="pile"></div>
+        <div id="game-content">
+            <div id="top-piles">
+                <div id="stock-pile" class="pile"></div>
+                <div id="waste-pile" class="pile"></div>
+                <div id="foundation-piles">
+                    <div id="foundation-0" class="pile"></div>
+                    <div id="foundation-1" class="pile"></div>
+                    <div id="foundation-2" class="pile"></div>
+                    <div id="foundation-3" class="pile"></div>
+                </div>
             </div>
-        </div>
 
-        <div id="tableau-piles">
-            <div id="tableau-0" class="tableau-pile"></div>
-            <div id="tableau-1" class="tableau-pile"></div>
-            <div id="tableau-2" class="tableau-pile"></div>
-            <div id="tableau-3" class="tableau-pile"></div>
-            <div id="tableau-4" class="tableau-pile"></div>
-            <div id="tableau-5" class="tableau-pile"></div>
-            <div id="tableau-6" class="tableau-pile"></div>
+            <div id="tableau-piles">
+                <div id="tableau-0" class="tableau-pile"></div>
+                <div id="tableau-1" class="tableau-pile"></div>
+                <div id="tableau-2" class="tableau-pile"></div>
+                <div id="tableau-3" class="tableau-pile"></div>
+                <div id="tableau-4" class="tableau-pile"></div>
+                <div id="tableau-5" class="tableau-pile"></div>
+                <div id="tableau-6" class="tableau-pile"></div>
+            </div>
         </div>
     </div>
 
@@ -431,6 +542,7 @@
 
             <div class="menu-buttons">
                 <button class="menu-btn" id="new-game-btn">Nova Partida</button>
+                <button class="menu-btn" id="main-menu-btn">Menu Inicial</button>
                 <button class="menu-btn" id="close-menu-btn">Fechar Menu</button>
                 <button class="menu-btn danger" id="reset-score-btn">Resetar Pontuação</button>
             </div>
@@ -496,13 +608,38 @@
             return deck;
         }
 
-        // Função para embaralhar o baralho
-        function shuffleDeck(deck) {
-            const shuffled = [...deck];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        // Função para embaralhar o baralho com base na dificuldade
+        function shuffleDeck(deck, difficulty = 'medium') {
+            let shuffled = [...deck];
+            
+            if (difficulty === 'random') {
+                // Embaralhamento completamente aleatório
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+            } else if (difficulty === 'easy') {
+                // Embaralhamento favorável - mais cartas baixas no topo
+                shuffled.sort((a, b) => {
+                    const aValue = VALUES.indexOf(a.value);
+                    const bValue = VALUES.indexOf(b.value);
+                    return aValue - bValue + (Math.random() - 0.5) * 0.5;
+                });
+            } else if (difficulty === 'hard') {
+                // Embaralhamento desfavorável - mais cartas altas no topo
+                shuffled.sort((a, b) => {
+                    const aValue = VALUES.indexOf(a.value);
+                    const bValue = VALUES.indexOf(b.value);
+                    return bValue - aValue + (Math.random() - 0.5) * 0.5;
+                });
+            } else {
+                // Embaralhamento padrão (medium)
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
             }
+            
             return shuffled;
         }
 
@@ -516,12 +653,30 @@
             moves: 0,
             startTime: Date.now(),
             gameTimer: null,
-            moveHistory: [] // Histórico para desfazer movimentos
+            moveHistory: [], // Histórico para desfazer movimentos
+            difficulty: 'medium' // easy, medium, hard, random
         };
 
         // Função para inicializar o jogo
-        function initializeGame() {
-            const deck = shuffleDeck(createDeck());
+        function initializeGame(difficulty = 'medium') {
+            // Limpar completamente o estado anterior
+            gameState = {
+                stock: [],
+                waste: [],
+                foundations: [[], [], [], []],
+                tableau: [[], [], [], [], [], [], []],
+                score: 0,
+                moves: 0,
+                startTime: Date.now(),
+                gameTimer: null,
+                moveHistory: [],
+                difficulty: difficulty,
+                selectedCard: null,
+                selectedPile: null,
+                selectedIndex: null
+            };
+
+            const deck = shuffleDeck(createDeck(), difficulty);
             
             // Distribuir cartas para o tableau
             let cardIndex = 0;
@@ -548,6 +703,24 @@
             
             renderGame();
             startTimer();
+        }
+
+        // Função para mostrar a tela inicial
+        function showMainMenu() {
+            document.getElementById('main-menu').style.display = 'flex';
+            document.getElementById('game-area').style.display = 'none';
+            
+            // Parar o timer se estiver rodando
+            if (gameState.gameTimer) {
+                clearInterval(gameState.gameTimer);
+                gameState.gameTimer = null;
+            }
+        }
+
+        // Função para mostrar a área de jogo
+        function showGameArea() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-area').style.display = 'block';
         }
 
         // Função para renderizar o jogo
@@ -1033,7 +1206,14 @@
 
             document.getElementById('new-game-btn').addEventListener('click', () => {
                 if (confirm('Tem certeza que deseja iniciar uma nova partida? O progresso atual será perdido.')) {
-                    initializeGame();
+                    initializeGame(gameState.difficulty);
+                    document.getElementById('menu-modal').style.display = 'none';
+                }
+            });
+
+            document.getElementById('main-menu-btn').addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja voltar ao menu inicial? O progresso atual será perdido.')) {
+                    showMainMenu();
                     document.getElementById('menu-modal').style.display = 'none';
                 }
             });
@@ -1067,6 +1247,42 @@
                     document.getElementById('menu-modal').style.display = 'block';
                 }
             });
+
+            // Event listeners da tela inicial
+            document.getElementById('easy-game-btn').addEventListener('click', () => {
+                showGameArea();
+                initializeGame('easy');
+            });
+
+            document.getElementById('medium-game-btn').addEventListener('click', () => {
+                showGameArea();
+                initializeGame('medium');
+            });
+
+            document.getElementById('hard-game-btn').addEventListener('click', () => {
+                showGameArea();
+                initializeGame('hard');
+            });
+
+            document.getElementById('random-game-btn').addEventListener('click', () => {
+                showGameArea();
+                initializeGame('random');
+            });
+
+            document.getElementById('instructions-btn').addEventListener('click', () => {
+                document.getElementById('menu-modal').style.display = 'block';
+            });
+
+            document.getElementById('credits-btn').addEventListener('click', () => {
+                document.getElementById('menu-modal').style.display = 'block';
+                // Rolar para a seção de créditos
+                setTimeout(() => {
+                    document.querySelector('#menu-content').scrollTop = document.querySelector('#menu-content').scrollHeight;
+                }, 100);
+            });
+
+            // Inicializar mostrando a tela inicial
+            showMainMenu();
         });
     </script>
 </body>
