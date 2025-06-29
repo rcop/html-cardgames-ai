@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <title>Tri Peaks Solitaire — v1.39 (Novos Patamares de Pontuação)</title>
+    <style>
+        /* Variáveis CSS para fácil ajuste de layout */
+        :root {
+            --card-w: 70px;
+            --card-h: 100px;
+            --gap-x: 15px; /* Espaçamento horizontal entre cartas na pirâmide */
+            --gap-y: -40px;  /* Espaçamento vertical entre cartas na pirâmide */
+            --board-margin: 0px;
+            --stock-overlap-x: 10px; /* Ajuste para o quanto as cartas do estoque se sobrepõem horizontalmente */
+            --stock-offset-y: 0px; /* Não há offset vertical para o estoque, todas na mesma base */
+        }
+        /* Reset básico e estilos globais */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #2e7d32; color: #fff; font-family: sans-serif; /* overflow: hidden; */ /* REMOVIDO: para permitir scroll do body se necessário */ }
+
+        /* Estilos do cabeçalho (header) */
+        #header {
+            width: 100%;
+            background: #1b5e20;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            flex-wrap: wrap; /* Permite que os itens quebrem linha em telas menores */
+        }
+        .stat { margin: 0 10px; display: flex; align-items: center; } /* Alterado para flexbox para alinhar itens de combo */
+        button {
+            padding: 6px 12px;
+            font-weight: bold;
+            margin-left: 8px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #fdd835; /* Amarelo */
+            color: #333;
+            transition: background-color 0.2s ease;
+        }
+        button:hover:not(:disabled) {
+            background-color: #ffeb3b; /* Amarelo mais claro no hover */
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
+
+        /* Área principal do jogo */
+        #game {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            padding-bottom: 30px; /* Adicionado padding para garantir espaço para scroll */
+        }
+
+        /* Transição para ocultar/mostrar elementos */
+        #tableau, #stockArea {
+            transition: opacity 0.3s ease;
+        }
+
+        /* Estilos da pirâmide (tableau) */
+        #tableau {
+            position: relative;
+            /* Calcula a largura máxima baseada no número de colunas de cartas + gaps */
+            width: calc((10 * var(--card-w)) + 9 * var(--gap-x) + 2 * var(--board-margin)); /* Ajustado para 9 gaps entre 10 cartas */
+            height: calc(4 * var(--card-h) + 3 * var(--gap-y)); /* 4 linhas de cartas + 3 gaps */
+            margin: 0 auto;
+        }
+
+        hr.separator {
+            width: 100%;
+            border: none;
+            border-top: 2px solid #ccc;
+            margin: 20px 0 10px;
+        }
+
+        /* Área do estoque e descarte */
+        #stockArea {
+            display: flex;
+            gap: 10px; /* Espaçamento entre o estoque e o descarte */
+            margin-top: 5px;
+            position: relative;
+            height: calc(var(--card-h) + 20px); /* Aumenta a altura para o contador abaixo */
+            align-items: flex-start; /* Alinha os containers pelo topo */
+            padding-top: 20px; /* Espaço para alinhar os contadores abaixo das cartas */
+        }
+
+        #stockWrapper, #wasteWrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* Para posicionar o contador */
+        }
+
+        .card-counter {
+            margin-top: 5px; /* Espaço entre a carta e o contador */
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        /* Container para o maço de cartas do estoque */
+        #stockContainer {
+            position: relative;
+            /* Largura será ajustada via JS para acomodar a pilha */
+            width: var(--card-w); /* Valor inicial, será sobrescrito */
+            height: var(--card-h);
+            cursor: default; /* Cursor padrão, hover é tratado na última carta */
+            display: inline-block;
+        }
+
+        /* Estilos para cada carta individual no estoque (as cartas face-down sobrepostas) */
+        .stock-card {
+            width: var(--card-w);
+            height: var(--card-h);
+            border: 3px solid #000;
+            border-radius: 8px;
+            /* Padrão vermelho existente */
+            background: repeating-linear-gradient(45deg, #d32f2f 0 5px, #b71c1c 5px 10px);
+            position: absolute; /* Posicionamento absoluto dentro do #stockContainer */
+            top: 0;
+            transition: all 0.2s ease; /* Transição para suavemente desaparecer ou mover-se */
+            box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.45); /* Sombra para dar profundidade */
+        }
+
+        /* A primeira carta a ser puxada (a mais à direita do estoque) */
+        #stockContainer .stock-card:last-child {
+            cursor: pointer; /* Apenas a carta do topo visual (mais à direita) é clicável */
+        }
+
+        /* Efeito hover para a primeira carta do estoque (a que está no topo da pilha visual) */
+        #stockContainer .stock-card:last-child:hover {
+            transform: translateY(-4px); /* Eleva a carta ligeiramente */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); /* Sombra mais pronunciada */
+            transition: transform 0.2s ease, box-shadow 0.2s ease; /* Transição suave */
+            z-index: 10; /* Garante que a carta sobreposta esteja acima das outras */
+        }
+
+        /* Estilos genéricos das cartas da pirâmide e descarte */
+        .card {
+            width: var(--card-w);
+            height: var(--card-h);
+            border: 3px solid #000;
+            border-radius: 8px;
+            box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.45);
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px;
+            font-weight: bold;
+            user-select: none; /* Impede seleção de texto */
+            cursor: pointer; /* Indica que é clicável por padrão */
+        }
+
+        /* Estilo para cartas viradas para baixo (nas pirâmides) */
+        .card.face-down {
+            background: repeating-linear-gradient(45deg, #d32f2f 0 5px, #b71c1c 5px 10px); /* Padrão vermelho */
+            color: transparent; /* Esconde o conteúdo */
+            box-shadow: none;
+            cursor: default; /* Não é clicável quando virada para baixo */
+        }
+
+        /* Cores dos naipes */
+        .card.red { color: red; }
+        .card.black { color: black; }
+        .card.wild { background: gold; color: #000; border-color: #b3880a; } /* Curingas dourados */
+
+        /* Conteúdo interno da carta */
+        .card .top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+        }
+        .card .center {
+            font-size: 48px;
+            text-align: center;
+        }
+
+        /* Relatório de descarte */
+        #discardReportScreen {
+            margin-top: 20px;
+            background: #1b5e20;
+            padding: 20px; /* Aumenta o padding para melhor visual */
+            border-radius: 6px;
+            max-width: 650px; /* *** AUMENTADO para acomodar a nova coluna *** */
+            width: 90%;
+            display: none; /* Oculto por padrão */
+            text-align: center; /* Centraliza o texto */
+            max-height: 80vh; /* Permite que o relatório ocupe no máximo 80% da altura da viewport */
+            overflow-y: auto; /* Adiciona scroll vertical se o conteúdo for maior que a altura máxima */
+            -webkit-overflow-scrolling: touch; /* Melhor rolagem em dispositivos iOS */
+        }
+        #discardReportScreen h2 {
+            font-size: 24px; /* Tamanho ajustado para o título "Resultado da Partida" */
+            margin-bottom: 0px; /* Remove margem para a palavra "VITÓRIA/DERROTA" ficar próxima */
+            font-weight: normal; /* Volta ao normal para o título */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Sombra para destacar */
+        }
+        #gameResultWord { /* Novo estilo para a palavra VITÓRIA/DERROTA */
+            font-size: 48px; /* Maior */
+            font-weight: bold; /* Negrito */
+            margin-top: 5px; /* Espaçamento da linha acima */
+            margin-bottom: 15px; /* Espaçamento da linha abaixo */
+            display: block; /* Garante quebra de linha */
+        }
+        #gameResultWord.victory {
+            color: #81d4fa; /* Azul claro para vitória */
+        }
+        #gameResultWord.defeat {
+            color: #ff8c00; /* Laranja para derrota */
+        }
+        #discardReportScreen p {
+            font-size: 18px; /* Pontuação maior */
+            margin-bottom: 10px; /* Reduz a margem para adicionar mais texto */
+            font-weight: bold;
+        }
+        #discardReportScreen #scoreRank { /* Novo estilo para a classificação de pontuação */
+            font-size: 16px;
+            font-style: italic;
+            margin-bottom: 20px;
+        }
+        #discardReportScreen h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        /* Estilos para a tabela de pontuação detalhada */
+        #scoreDetailTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 20px; /* Espaçamento entre as duas tabelas */
+        }
+        #scoreDetailTable th, #scoreDetailTable td {
+            padding: 6px;
+            text-align: center;
+            border-bottom: 1px solid #ccc;
+            color: #fff;
+        }
+        #scoreDetailTable th {
+            background-color: #388e3c; /* Verde mais escuro */
+        }
+
+        #discardTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-top: 15px; /* Espaçamento entre o título e a tabela */
+        }
+        #discardTable th, #discardTable td {
+            padding: 6px;
+            text-align: center;
+            border-bottom: 1px solid #ccc;
+            color: #fff; /* Garante que o texto da tabela seja branco */
+        }
+        #discardTable th {
+            background-color: #388e3c; /* Verde mais escuro para o cabeçalho da tabela */
+        }
+
+        /* Cores específicas para as colunas de cor no relatório */
+        .discard-black { color: black; font-weight: bold; }
+        .discard-red { color: red; font-weight: bold; }
+        .discard-wild { color: gold; font-weight: bold; }
+
+        /* Efeito hover para cartas jogáveis */
+        .card.table-card:not(.face-down):hover {
+            transform: translateY(-4px); /* Eleva a carta ligeiramente */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); /* Sombra mais pronunciada */
+            transition: transform 0.2s ease, box-shadow 0.2s ease; /* Transição suave */
+            z-index: 10; /* Garante que a carta sobreposta esteja acima das outras */
+        }
+
+        /* --- Estilos para Snackbar (Toast Notification) --- */
+        #snackbar {
+            visibility: hidden; /* Oculto por padrão */
+            min-width: 250px;
+            margin-left: -125px; /* Centraliza a div */
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1001; /* Acima de tudo */
+            left: 50%;
+            top: 30px; /* POSICIONADO NO TOPO */
+            font-size: 17px;
+            opacity: 0; /* Começa transparente */
+            transition: visibility 0s, opacity 0.5s ease-in-out;
+        }
+
+        #snackbar.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* --- Estilos para Modais --- */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000; /* Abaixo da snackbar, mas acima do jogo */
+            display: flex; /* Para centralizar o modal */
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0s linear 0.3s; /* Atrasa visibility ao ocultar */
+        }
+
+        .modal-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease-in-out, visibility 0s linear 0s; /* Mostra imediatamente */
+        }
+
+        .modal-content {
+            background-color: #1b5e20; /* Cor de fundo do header */
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            max-width: 90%;
+            min-width: 300px;
+            text-align: center;
+            transform: translateY(-20px); /* Pequeno efeito de entrada */
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        .modal-backdrop.show .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: #fdd835; /* Amarelo */
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            margin-bottom: 20px;
+            line-height: 1.5;
+            color: #fff;
+        }
+        .modal-content ul {
+            text-align: left;
+            list-style-position: inside;
+            margin-bottom: 20px;
+            padding-left: 0;
+        }
+        .modal-content ul li {
+            margin-bottom: 8px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            padding: 10px 20px;
+            font-size: 1em;
+        }
+
+        /* --- Estilos para a Barra de Progresso do Combo --- */
+        .combo-container {
+            display: flex;
+            align-items: center;
+            margin-left: 10px; /* Espaçamento do contador de pontos */
+            opacity: 1; /* Padrão visível */
+            pointer-events: auto; /* Padrão clicável */
+            transition: opacity 0.3s ease; /* Transição para ocultar/mostrar */
+        }
+        .combo-container.disabled {
+            opacity: 0.4; /* Opacidade reduzida quando desabilitado */
+            pointer-events: none; /* Impede cliques */
+        }
+
+        #comboProgressWrapper {
+            width: 100px; /* Largura fixa da barra */
+            height: 12px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            overflow: hidden; /* Garante que o preenchimento não vaze */
+            margin-left: 8px;
+            position: relative; /* Para o overlay de reset */
+        }
+
+        #comboProgressBar {
+            height: 100%;
+            width: 0%; /* Controlado via JS */
+            background-color: #4CAF50; /* Verde vibrante */
+            border-radius: 6px;
+            transition: width 0.3s ease-out; /* Transição suave do preenchimento */
+        }
+
+        /* Efeito de reset para a barra de progresso */
+        #comboProgressBar.resetting {
+            transition: none; /* Desabilita a transição para um reset instantâneo */
+            width: 0%; /* Volta a 0 */
+            opacity: 0; /* Torna-se transparente */
+        }
+        #comboProgressBar.resetting + .combo-reset-overlay { /* Mostra um overlay durante o reset */
+            opacity: 1;
+            transform: scaleX(1);
+            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+        }
+
+        .combo-reset-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.7); /* Vermelho translúcido */
+            border-radius: 6px;
+            opacity: 0;
+            transform: scaleX(0); /* Começa invisível e esmagado */
+            transform-origin: left;
+            transition: opacity 0.2s ease-out 0.1s, transform 0.2s ease-out 0.1s; /* Pequeno delay */
+        }
+
+        /* Ícone de informação do combo */
+        .combo-info-icon {
+            margin-left: 6px;
+            font-size: 1.2em;
+            cursor: pointer;
+            color: #81d4fa; /* Azul claro */
+            transition: color 0.2s ease;
+        }
+        .combo-info-icon:hover {
+            color: #fff;
+        }
+
+        /* Estilo para o contador regressivo no cabeçalho */
+        #countdownDisplay {
+            margin-left: 5px;
+            font-size: 0.9em;
+            font-weight: normal;
+            color: #fdd835; /* Amarelo */
+        }
+
+        /* Animação para o score */
+        .score-penalty {
+            animation: scoreFlashRed 0.5s ease-out;
+        }
+        @keyframes scoreFlashRed {
+            0% { color: red; transform: scale(1.1); }
+            100% { color: white; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div class="stat">Tempo: <span id="time">00:00</span><span id="countdownDisplay"> (5s)</span></div>
+        <div class="stat">Pontos: <span id="score">0</span></div>
+        <div class="stat">
+            Combo: <span id="combo">0</span>
+            <div class="combo-container">
+                <div id="comboProgressWrapper">
+                    <div id="comboProgressBar"></div>
+                    <div class="combo-reset-overlay"></div> </div>
+                <span class="combo-info-icon" onclick="showComboInfoModal()" title="Como funciona o Combo?">&#9432;</span>
+            </div>
+        </div>
+        <div>
+            <button id="undoButton" onclick="undoMove()">Desfazer (3)</button>
+            <button onclick="confirmNewGame()">Nova Partida</button>
+            <button onclick="showInstructions()">?</button>
+        </div>
+    </div>
+
+    <div id="game">
+        <div id="tableau"></div>
+        <hr class="separator" />
+        <div id="stockArea">
+            <div id="stockWrapper">
+                <div id="stockContainer" onclick="drawFromStock()">
+                </div>
+                <div id="stockCount" class="card-counter">Estoque: 0</div>
+            </div>
+            <div id="wasteWrapper">
+                <div id="waste" class="card"></div>
+                <div id="wasteCount" class="card-counter">Descarte: 0</div>
+            </div>
+        </div>
+        <div id="discardReportScreen">
+            <h2 id="gameResultTitle">RESULTADO DA PARTIDA:</h2>
+            <span id="gameResultWord"></span>
+            <p id="gameResultScore"></p>
+            <p id="gameResultTime"></p> <p id="scoreRank"></p>
+            <table id="scoreDetailTable">
+                <thead>
+                    <tr><th>Ação</th><th>Pontos por Ocorrência</th><th>Quantidade de Ocorrências</th><th>Total de Pontos</th></tr> </thead>
+                <tbody id="scoreDetailItems"></tbody>
+            </table>
+
+            <h3>Relatório de Cartas Descartadas</h3>
+            <table id="discardTable">
+                <thead>
+                    <tr><th>#</th><th>ID</th><th>Origem</th><th>Naipe</th><th>Cor</th></tr>
+                </thead>
+                <tbody id="discardItems"></tbody>
+            </table>
+            <button style="margin-top: 15px; width: 100%;" onclick="startNewGame()">Jogar Novamente</button>
+        </div>
+    </div>
+
+    <div id="snackbar"></div>
+
+    <div id="confirmModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h2>Nova Partida</h2>
+            <p>Você tem certeza que quer iniciar uma nova partida? Seu progresso atual será perdido.</p>
+            <div class="modal-buttons">
+                <button onclick="startNewGame(); hideConfirmModal()">Sim</button>
+                <button onclick="hideConfirmModal()">Não</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="instructionsModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h2>Instruções do Jogo</h2>
+            <p>O objetivo é remover todas as cartas da pirâmide.</p>
+            <ul>
+                <li>Clique em uma carta da pirâmide que tenha um valor adjacente (+1 ou −1) à carta no descarte (carta ativa).</li>
+                <li>O loop A↔K↔2 está ativado: 'A' pode ser jogado sobre 'K', e 'K' pode ser jogado sobre 'A'. '2' pode ser jogado sobre 'A'.</li>
+                <li>Cartas Curingas (★) são especiais: podem ser jogadas sobre qualquer carta e qualquer carta pode ser jogada sobre elas.</li>
+                <li>Uma carta na pirâmide só pode ser jogada se nenhuma outra carta estiver 'em cima' dela (bloqueando-a).</li>
+                <li>Se não houver movimentos válidos na pirâmide, clique na carta virada para baixo (Estoque) para revelar uma nova carta para o descarte.</li>
+                <li>Você vence ao eliminar todas as cartas da pirâmide.</li>
+                <li>Você perde se não houver mais movimentos possíveis e o estoque estiver vazio.</li>
+            </ul>
+            <h3>Sistema de Pontuação:</h3>
+            <ul>
+                <li>Carta da Pirâmide para Descarte (Base): Varia de +1 a +7 pontos. A pontuação base aumenta em +2 para cada um dos 3 topos (D1, D2, D3) que você remover da pirâmide.</li>
+                <li>Bônus - Mesma Cor da Carta Anterior: +1 ponto (acumula).</li>
+                <li>Bônus - Mesmo Naipe da Carta Anterior: +3 pontos (acumula).</li>
+                <li>Bônus - Combo: Ao descartar 5 cartas consecutivas da pirâmide sem puxar do estoque, um Combo é ativado! Você ganha pontos extras e uma carta aleatória do descarte volta para o estoque:
+                    <ul>
+                        <li>1º Combo: +10 pontos imediatamente.</li>
+                        <li>2º Combo: +15 pontos imediatamente.</li>
+                        <li>3º Combo e seguintes: +20 pontos imediatamente.</li>
+                    </ul>
+                    * O combo é resetado ao puxar uma carta do estoque.
+                </li>
+                <li>Penalidade - Desfazer Usado: -5 pontos.</li>
+                <li>Bônus - Estoque (ao vencer): +1 ponto a cada 2 cartas restantes no estoque (arredondando para cima).</li>
+                <li>**Penalidade - Tempo:** -1 ponto a cada 10 segundos decorridos de jogo. A penalidade não reduz a pontuação abaixo de zero.</li>
+            </ul>
+            <div class="modal-buttons">
+                <button onclick="hideInstructionsModal()">Entendi</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameEndModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h2 id="gameEndTitle"></h2>
+            <p id="gameEndMessage"></p>
+            <div class="modal-buttons">
+                <button onclick="startNewGame(); hideGameEndModal()">Nova Partida</button>
+                <button onclick="hideGameEndModal(); displayResultScreen(lastGameResult)">Ver Escore Final</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="comboInfoModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h2>Como Funciona o Combo?</h2>
+            <p>O "Combo" é ativado ao descartar <strong>5 cartas consecutivas da pirâmide</strong> sem puxar nenhuma carta do estoque.</p>
+            <h3>Benefícios do Combo:</h3>
+            <ul>
+                <li><strong>Pontos Bônus:</strong>
+                    <ul>
+                        <li>1º Combo: +10 pontos</li>
+                        <li>2º Combo: +15 pontos</li>
+                        <li>3º Combo e seguintes: +20 pontos</li>
+                    </ul>
+                </li>
+                <li><strong>Recompensa de Carta:</strong> Uma carta aleatória do seu descarte (exceto a carta atualmente ativa) é movida de volta para o seu estoque, permitindo mais jogadas!</li>
+            </ul>
+            <p>A barra de progresso no topo da tela mostra o quanto você já avançou no seu combo atual. Se você puxar uma carta do estoque, o combo é resetado!</p>
+            <div class="modal-buttons">
+                <button onclick="hideComboInfoModal()">Entendi</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Definições Globais e Constantes ---
+        const suits = ['♠','♥','♦','♣'];
+        const values = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+        // Mapeamento de IDs das posições da pirâmide. Ex: A1, B2, D3.
+        const pos = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10','B1','B2','B3','B4','B5','B6','B7','B8','B9','C1','C2','C3','C4','C5','C6','D1','D2','D3'];
+
+        // Definição das relações pai-filho na pirâmide (cartas que bloqueiam outras).
+        // Se uma carta em 'child' tiver a posição de uma carta na pirâmide,
+        // significa que a carta atual está bloqueando as cartas filhas.
+        const child = {
+            D1:['C1','C2'],D2:['C3','C4'],D3:['C5','C6'],
+            C1:['B1','B2'],C2:['B2','B3'],C3:['B4','B5'],
+            C4:['B5','B6'],C5:['B7','B8'],C6:['B8','B9'],
+            B1:['A1','A2'],B2:['A2','A3'],B3:['A3','A4'],
+            B4:['A4','A5'],B5:['A5','A6'],B6:['A6','A7'],
+            B7:['A7','A8'],B8:['A8','A9'],B9:['A9','A10']
+        };
+
+        // As três cartas de topo da pirâmide
+        const topPyramidRoots = ['D1', 'D2', 'D3'];
+        // Objeto para rastrear se as cartas de topo foram removidas (true) ou ainda estão na pirâmide (false)
+        let topPyramidCardsState = { D1: false, D2: false, D3: false };
+
+
+        // Coordenadas para posicionamento visual das cartas na pirâmide (coluna, linha)
+        const loc = {
+            A1:[0,3],A2:[1,3],A3:[2,3],A4:[3,3],A5:[4,3],A5:[4,3],A6:[5,3],A7:[6,3],A8:[7,3],A9:[8,3],A10:[9,3],
+            B1:[0.5,2],B2:[1.5,2],B3:[2.5,2],B4:[3.5,2],B5:[4.5,2],B6:[5.5,2],B7:[6.5,2],B8:[7.5,2],B9:[8.5,2],
+            C1:[1,1],C2:[2,1],C3:[4,1],C4:[5,1],C5:[7,1],C6:[8,1],
+            D1:[1.5,0],D2:[4.5,0],D3:[7.5,0]
+        };
+
+        // --- Variáveis de Estado do Jogo ---
+        let deck = [];          // Baralho completo (antes de embaralhar e distribuir)
+        let stock = [];         // Cartas no estoque (baralho de compra)
+        let waste = {};         // Carta atualmente no descarte (carta ativa)
+        let cards = {};         // Objeto que mapeia posições na pirâmide para seus elementos HTML de carta
+        let undoStack = [];     // Pilha para armazenar estados anteriores para a função "Desfazer"
+        let undoLimit = 3;      // Número de vezes que o "desfazer" pode ser usado por partida
+        let wasteCount = 0;     // Contador de cartas removidas da pirâmide ou do estoque
+        let discardSequence = []; // Armazena a ordem e origem das cartas descartadas para o relatório
+        let allDiscardedCards = []; // Armazena todas as cartas que passaram pelo descarte (incluindo as de pirâmide e estoque)
+
+        let currentScore = 0;   // Pontuação atual do jogador
+        let currentComboCount = 0; // Contador de cartas descartadas da pirâmide em sequência para o combo atual (atinge 5 para ativar)
+        const COMBO_THRESHOLD = 5; // Limiar para ativar o combo
+        let totalCombosAchieved = 0;  // Quantos combos de 5 cartas já foram completados
+
+        // Objeto para detalhar a pontuação para o relatório final
+        let scoreBreakdown = {
+            cardFromPyramid: { count: 0, totalPoints: 0, lastBasePoints: 0 },
+            sameColor: { count: 0, pointsPerOccurrence: 1, totalPoints: 0 }, // Alterado para 1
+            sameSuit: { count: 0, pointsPerOccurrence: 3, totalPoints: 0 },   // Alterado para 3
+            comboRewardPoints: { count: 0, totalPoints: 0, lastBonusValue: 0 }, // Pontuação de combo (recompensa extra por ativar um combo de 5)
+            undoUsed: { count: 0, pointsPerOccurrence: -5, totalPoints: 0 },
+            stockBonus: { count: 0, pointsPerOccurrence: 1, totalPoints: 0 }, // Pontos por cada 2 cartas no estoque ao final (arredondando para cima)
+            timePenalty: { count: 0, pointsPerOccurrence: -1, totalPoints: 0 }
+        };
+        let gameActive = false; // Flag para controlar se uma partida está ativa
+        let lastGameResult = ""; // Armazena o resultado da última partida ("VITÓRIA" ou "DERROTA")
+
+        // --- Variáveis de Tempo ---
+        let gameStartTime = 0; // Timestamp de quando o jogo realmente começou a contar (após a contagem regressiva)
+        let gameTimerInterval = null; // Intervalo para o timer progressivo
+        let totalTimeElapsed = 0; // Tempo total em segundos
+        let countdownInterval = null; // Intervalo para a contagem regressiva
+        let currentCountdown = 5; // Inicia a contagem regressiva em 5 segundos
+        const countdownDisplay = document.getElementById('countdownDisplay'); // Referência ao elemento do contador regressivo
+
+
+        // --- Funções Utilitárias ---
+
+        /**
+         * Embaralha um array (algoritmo Fisher-Yates).
+         * @param {Array} a - O array a ser embaralhado.
+         */
+        const shuffle = a => {
+            for(let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]]; // Troca elementos de posição
+            }
+            return a; // Retorna o array embaralhado
+        };
+
+        /**
+         * Mapeia o valor da carta para um valor numérico para comparação.
+         * 'A' = 1, 'J' = 11, 'Q' = 12, 'K' = 13. Curinga '★' = 0.
+         * @param {string} v - O valor da carta (ex: 'A', 'K', '7', '★').
+         * @returns {number} O valor numérico correspondente.
+         */
+        const cardValuesMap = new Map([
+            ['A', 1], ['2', 2], ['3', 3], ['4', 4], ['5', 5], ['6', 6], ['7', 7], ['8', 8], ['9', 9], ['10', 10], ['J', 11], ['Q', 12], ['K', 13], ['★', 0]
+        ]);
+        const val = v => cardValuesMap.get(v);
+
+        /**
+         * Gera o HTML interno para uma carta.
+         * @param {string} v - O valor da carta.
+         * @param {string} s - O naipe da carta.
+         * @returns {string} O HTML para exibir o valor e naipe.
+         */
+        const html = (v,s) => `<div class='top'><span>${v}</span><span>${s}</div><div class='center'>${v}</div>`;
+
+        /**
+         * Adiciona a classe de cor apropriada ao elemento da carta baseada no naipe.
+         * @param {HTMLElement} e - O elemento HTML da carta.
+         * @param {string} s - O naipe da carta.
+         */
+        function suitClass(e,s){
+            e.classList.remove('red','black','wild'); // Remove classes existentes
+            if(s==='*') { // Curinga
+                e.classList.add('wild');
+            } else { // Naipes normais
+                e.classList.add(['♥','♦'].includes(s)?'red':'black');
+            }
+        }
+
+        /**
+         * Retorna a cor de um naipe (red, black ou wild).
+         * @param {string} s - O naipe da carta.
+         * @returns {string} A cor do naipe ('red', 'black', 'wild').
+         */
+        function getSuitColor(s){
+            if(s==='*') return 'wild';
+            return ['♥','♦'].includes(s)?'red':'black';
+        }
+
+        /**
+         * Posiciona o elemento HTML da carta na pirâmide usando CSS absoluto.
+         * @param {HTMLElement} e - O elemento HTML da carta.
+         * @param {Array<number>} coords - Array com [coluna, linha] para posicionamento.
+         */
+        function place(e,[c,r]){
+            const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
+            const ch = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-h'));
+            const gx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap-x'));
+            const gy = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap-y'));
+            const m = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--board-margin'));
+
+            e.style.position = 'absolute';
+            e.style.left = `${m + c * (cw + gx)}px`;
+            e.style.top = `${r * (ch + gy)}px`;
+        }
+
+        /**
+         * Cria um novo elemento HTML de carta e o configura.
+         * @param {Object} d - Objeto da carta com {value, suit}.
+         * @param {string} p - ID da posição da carta na pirâmide (ex: 'A1').
+         * @param {boolean} up - Se a carta deve estar virada para cima inicialmente.
+         * @returns {HTMLElement} O elemento HTML da carta criada.
+         */
+        function createCard(d,p,up){
+            const e = document.createElement('div');
+            e.className = 'card table-card'; // Adiciona classe para estilização e identificação
+
+            // Define o z-index com base na linha da carta (A > B > C > D)
+            // As cartas da linha A (mais baixas) devem ter o z-index mais alto para sobrepor
+            const rowPrefix = p.charAt(0);
+            switch (rowPrefix) {
+                case 'A':
+                    e.style.zIndex = 4;
+                    break;
+                case 'B':
+                    e.style.zIndex = 3;
+                    break;
+                case 'C':
+                    e.style.zIndex = 2;
+                    break;
+                case 'D':
+                    e.style.zIndex = 1;
+                    break;
+                default:
+                    e.style.zIndex = 0; // Caso improvável de erro
+                    break;
+            }
+
+            if (up){ // Carta virada para cima
+                suitClass(e,d.suit);
+                e.innerHTML = html(d.value,d.suit);
+                e.onclick = () => playCard(p); // Adiciona evento de clique apenas se estiver virada para cima
+            } else { // Carta virada para baixo
+                e.classList.add('face-down');
+            }
+            // Armazena dados no elemento para fácil acesso
+            place(e, loc[p]); // Passa o objeto loc[p] diretamente
+            e.dataset.value = d.value;
+            e.dataset.suit = d.suit;
+            e.dataset.pos = p;
+            cards[p] = e; // Armazena a referência do elemento no objeto 'cards'
+            return e;
+        }
+
+        /**
+         * Constrói o baralho padrão de 52 cartas + 2 curingas.
+         */
+        function buildDeck(){
+            deck = [];
+            for(const s of suits) {
+                for(const v of values) {
+                    deck.push({suit:s,value:v});
+                }
+            }
+            deck.push({suit:'*',value:'★'},{suit:'*',value:'★'}); // Adiciona os dois curingas
+            shuffle(deck); // Embaralha o baralho
+        }
+
+        /**
+         * Inicia uma nova partida do jogo.
+         */
+        function startNewGame(){
+            // Interrompe qualquer contagem regressiva ou timer ativo
+            stopCountdown();
+            stopGameTimer();
+
+            // Reseta a visibilidade das áreas do jogo
+            document.getElementById('tableau').style.display = '';
+            document.getElementById('stockArea').style.display = 'flex';
+            document.getElementById('discardReportScreen').style.display = 'none'; // Oculta a tela de relatório
+            document.getElementById('gameResultWord').classList.remove('victory', 'defeat'); // Remove classes de cor anteriores
+            document.getElementById('gameResultWord').innerText = ''; // Limpa o texto da palavra resultado
+
+
+            // Habilita o botão desfazer e atualiza seu texto
+            undoLimit = 3; // Reseta o limite de desfazer para 3
+            // O botão deve estar habilitado para iniciar uma nova partida com 3 "desfazeres"
+            document.getElementById('undoButton').disabled = false;
+            updateUndoButton(); // Atualiza o texto do botão
+
+
+            discardSequence = [];     // Limpa o histórico de descarte para relatório
+            allDiscardedCards = [];   // Limpa o histórico de todas as cartas descartadas
+            currentScore = 0;         // Reseta a pontuação
+            currentComboCount = 0;    // Reseta o contador de combo atual
+            totalCombosAchieved = 0;  // Reseta o contador de combos completos
+            updateScore();            // Atualiza o display da pontuação
+            updateComboDisplay();     // Atualiza o display do combo
+            updateComboProgressBar(); // Atualiza a barra de progresso do combo
+            setComboBarEnabled(true); // Habilita a barra de combo
+
+
+            // Reseta o detalhamento da pontuação
+            scoreBreakdown = {
+                cardFromPyramid: { count: 0, totalPoints: 0, lastBasePoints: 0 },
+                sameColor: { count: 0, pointsPerOccurrence: 1, totalPoints: 0 },
+                sameSuit: { count: 0, pointsPerOccurrence: 3, totalPoints: 0 },
+                comboRewardPoints: { count: 0, totalPoints: 0, lastBonusValue: 0 },
+                undoUsed: { count: 0, pointsPerOccurrence: -5, totalPoints: 0 },
+                stockBonus: { count: 0, pointsPerOccurrence: 1, totalPoints: 0 },
+                timePenalty: { count: 0, pointsPerOccurrence: -1, totalPoints: 0 }
+            };
+            // Reseta o status das cartas de topo da pirâmide (D1, D2, D3)
+            topPyramidCardsState = { D1: false, D2: false, D3: false };
+
+
+            const t = document.getElementById('tableau');
+            t.innerHTML = ''; // Limpa a pirâmide
+            cards = {};       // Reseta o objeto de cartas
+            undoStack = [];   // Limpa a pilha de desfazer
+
+            buildDeck(); // Constrói e embaralha um novo baralho
+            const pyr = deck.splice(0,28); // Pega as primeiras 28 cartas para a pirâmide
+
+            // Distribui as cartas na pirâmide
+            pos.forEach((p,i) => t.appendChild(createCard(pyr[i],p,p.startsWith('A')))); // Apenas as cartas da primeira linha ('A') viradas para cima
+
+            stock = [...deck]; // O restante do baralho vai para o estoque
+            wasteCount = 0;    // Reseta o contador de descarte
+
+            // Inicializa a carta de descarte com a primeira carta do estoque
+            flipStock(true); // true para indicar que é a primeira carta do jogo (sem salvar estado anterior)
+
+            updateStockVisuals(); // Atualiza a representação visual do estoque
+            update();           // Atualiza o estado visual das cartas na pirâmide
+
+            // Inicia a contagem regressiva antes do jogo começar a contar o tempo
+            startGameCountdown();
+        }
+
+        /**
+         * Inicia a contagem regressiva de 5 segundos antes do timer progressivo começar.
+         */
+        function startGameCountdown() {
+            gameActive = false; // O jogo ainda não está ativo para ações de tempo
+            currentCountdown = 5;
+            countdownDisplay.innerText = ` (${currentCountdown}s)`;
+            countdownDisplay.style.display = 'inline'; // Mostra o contador regressivo
+
+            // Define o onclick para qualquer ação do jogo iniciar o timer
+            // Captura de eventos no body para qualquer clique ou keydown
+            document.body.addEventListener('click', handleFirstAction, { once: true });
+            document.body.addEventListener('keydown', handleFirstAction, { once: true });
+
+
+            countdownInterval = setInterval(() => {
+                currentCountdown--;
+                if (currentCountdown > 0) {
+                    countdownDisplay.innerText = ` (${currentCountdown}s)`;
+                } else {
+                    stopCountdown(); // Para a contagem regressiva e esconde
+                    startGameTimer(); // Inicia o timer do jogo
+                }
+            }, 1000);
+        }
+
+        /**
+         * Lida com a primeira ação do jogador para iniciar o timer progressivo.
+         */
+        function handleFirstAction() {
+            stopCountdown(); // Para a contagem regressiva
+            startGameTimer(); // Inicia o timer do jogo
+            // Remove os event listeners para que não sejam acionados novamente
+            document.body.removeEventListener('click', handleFirstAction);
+            document.body.removeEventListener('keydown', handleFirstAction);
+        }
+
+        /**
+         * Para a contagem regressiva e esconde o overlay.
+         */
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            countdownDisplay.style.display = 'none'; // Esconde o contador regressivo
+        }
+
+        /**
+         * Inicia o timer progressivo do jogo.
+         */
+        function startGameTimer() {
+            gameActive = true; // O jogo agora está ativo e o tempo está contando
+            gameStartTime = Date.now();
+            totalTimeElapsed = 0;
+            updateTimeDisplay(); // Atualiza para 00:00
+
+            // Limpa qualquer timer anterior
+            stopGameTimer();
+
+            gameTimerInterval = setInterval(() => {
+                if (gameActive) { // Certifica-se de que o jogo ainda está ativo
+                    const elapsedMilliseconds = Date.now() - gameStartTime;
+                    totalTimeElapsed = Math.floor(elapsedMilliseconds / 1000); // Tempo em segundos
+
+                    updateTimeDisplay();
+
+                    // --- LÓGICA DE PENALIDADE DE TEMPO ---
+                    // Penalidade de tempo: a cada 10 segundos
+                    // totalTimeElapsed > 0: garante que a penalidade não seja aplicada no segundo 0
+                    // totalTimeElapsed % 10 === 0: verifica se é um múltiplo de 10 segundos
+                    // (totalTimeElapsed / 10) > scoreBreakdown.timePenalty.count: garante que a penalidade seja aplicada apenas uma vez por bloco de 10 segundos
+                    if (totalTimeElapsed > 0 && totalTimeElapsed % 10 === 0 && (totalTimeElapsed / 10) > scoreBreakdown.timePenalty.count) {
+                        if (currentScore > 0) { // Só reduz se a pontuação for maior que zero
+                            currentScore += scoreBreakdown.timePenalty.pointsPerOccurrence; // Deduz 1 ponto
+                            scoreBreakdown.timePenalty.count++;
+                            scoreBreakdown.timePenalty.totalPoints += scoreBreakdown.timePenalty.pointsPerOccurrence;
+                            updateScore(); // Atualiza a pontuação no display
+                            const scoreElement = document.getElementById('score');
+                            scoreElement.classList.add('score-penalty'); // Adiciona classe para animação
+                            setTimeout(() => {
+                                scoreElement.classList.remove('score-penalty');
+                            }, 500); // Remove a classe após a animação
+                        } else {
+                            // Se a pontuação já é 0 ou negativa, ainda registra a "tentativa" de penalidade
+                            // para manter a contagem de ocorrências, mas sem alterar a pontuação real
+                            scoreBreakdown.timePenalty.count++;
+                            scoreBreakdown.timePenalty.totalPoints += scoreBreakdown.timePenalty.pointsPerOccurrence;
+                        }
+                    }
+                    // --- FIM LÓGICA DE PENALIDADE DE TEMPO ---
+                }
+            }, 1000); // Atualiza a cada segundo
+            updateUndoButton(); // Garante que o botão desfazer esteja habilitado com o timer ativo
+        }
+
+        /**
+         * Para o timer progressivo do jogo.
+         */
+        function stopGameTimer() {
+            if (gameTimerInterval) {
+                clearInterval(gameTimerInterval);
+                gameTimerInterval = null;
+            }
+        }
+
+        /**
+         * Atualiza o display do tempo no header.
+         */
+        function updateTimeDisplay() {
+            const minutes = Math.floor(totalTimeElapsed / 60);
+            const seconds = totalTimeElapsed % 60;
+            document.getElementById('time').innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        /**
+         * Atualiza o texto do botão "Desfazer" para mostrar os usos restantes.
+         */
+        function updateUndoButton(){
+            const undoButton = document.getElementById('undoButton');
+            undoButton.innerText = `Desfazer (${undoLimit})`;
+            // O botão Desfazer deve estar habilitado APENAS se o jogo estiver ativo E
+            // houver usos restantes OU houver movimentos na pilha de desfazer.
+            // Se o jogo não está ativo (fim de partida, relatório, etc.), o botão deve estar desabilitado.
+            undoButton.disabled = !gameActive || (undoLimit < 1 && undoStack.length === 0);
+        }
+
+        /**
+         * Atualiza a exibição do número de cartas no estoque.
+         */
+        function updateStockCount(){
+            document.getElementById('stockCount').innerText = `Estoque: ${stock.length}`;
+        }
+
+        /**
+         * Atualiza a exibição do número total de cartas descartadas.
+         */
+        function updateWasteCount(){
+            document.getElementById('wasteCount').innerText = `Descarte: ${wasteCount}`;
+        }
+
+        /**
+         * Atualiza a exibição da pontuação atual no header.
+         */
+        function updateScore(){
+            document.getElementById('score').innerText = currentScore;
+        }
+
+        /**
+         * Atualiza a exibição do contador de combo no header.
+         */
+        function updateComboDisplay(){
+            document.getElementById('combo').innerText = currentComboCount;
+        }
+
+        /**
+         * Habilita ou desabilita a barra de progresso do combo e o ícone de informação.
+         * @param {boolean} enable - true para habilitar, false para desabilitar.
+         */
+        function setComboBarEnabled(enable) {
+            const comboContainer = document.querySelector('.combo-container');
+            if (enable) {
+                comboContainer.classList.remove('disabled');
+            } else {
+                comboContainer.classList.add('disabled');
+                // Garante que a barra esteja zerada quando desabilitada
+                document.getElementById('comboProgressBar').style.width = '0%';
+                document.getElementById('combo').innerText = '0'; // Zera o contador visual
+            }
+        }
+
+        /**
+         * Atualiza a barra de progresso do combo.
+         * @param {boolean} [resetting=false] - true para animar o reset (efeito vermelho), false para atualização normal.
+         * @param {boolean} [forceNoResetAnimation=false] - true para forçar que NUNCA haja animação de reset, mesmo se `currentComboCount` for > 0.
+         */
+        function updateComboProgressBar(resetting = false, forceNoResetAnimation = false) {
+            const progressBar = document.getElementById('comboProgressBar');
+            const overlay = document.querySelector('.combo-reset-overlay');
+
+            if (resetting && currentComboCount > 0 && !forceNoResetAnimation) {
+                // Aplica a classe de reset e reinicia a largura e opacidade
+                progressBar.classList.add('resetting');
+                overlay.style.opacity = 1;
+                overlay.style.transform = 'scaleX(1)';
+                // Remove a classe após um pequeno atraso para reativar a transição
+                setTimeout(() => {
+                    progressBar.classList.remove('resetting');
+                    overlay.style.opacity = 0;
+                    overlay.style.transform = 'scaleX(0)';
+                    // Garante que a barra volte a 0% visualmente
+                    progressBar.style.width = '0%';
+                }, 200); // Duração da animação de reset
+            } else {
+                // Atualiza a largura normalmente
+                const progress = (currentComboCount / COMBO_THRESHOLD) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressBar.style.opacity = 1; // Garante que esteja visível
+                // Se não está resetando, garante que o overlay esteja oculto
+                overlay.style.opacity = 0;
+                overlay.style.transform = 'scaleX(0)';
+            }
+        }
+
+
+        /**
+         * Atualiza a representação visual do estoque como uma pilha de cartas.
+         * As cartas são empilhadas da esquerda para a direita, com a mais à direita sendo a disponível.
+         */
+        function updateStockVisuals(){
+            const stockContainer = document.getElementById('stockContainer');
+            stockContainer.innerHTML = ''; // Limpa as cartas visuais existentes
+
+            const numCards = stock.length;
+
+            const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
+            const cardH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-h'));
+            const overlapX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stock-overlap-x'));
+
+            // Calcular a largura total necessária para o container
+            // A largura total será a largura da primeira carta + (número de cartas - 1) * overlap
+            const totalWidth = cardW + (Math.max(0, numCards - 1) * overlapX);
+            stockContainer.style.width = `${totalWidth}px`;
+            stockContainer.style.height = `${cardH}px`; // Altura fixa
+
+            for (let i = 0; i < numCards; i++) {
+                const stockCardEl = document.createElement('div');
+                stockCardEl.classList.add('stock-card');
+
+                // Posiciona as cartas da esquerda para a direita.
+                // A carta mais à esquerda (fundo da pilha) está em left = 0.
+                // As cartas subsequentes se movem para a direita pelo valor de overlapX.
+                stockCardEl.style.left = `${i * overlapX}px`;
+                stockCardEl.style.top = '0px'; // Todas na mesma linha de base
+                stockCardEl.style.zIndex = i; // Z-index crescente para as cartas mais à direita ficarem por cima
+
+                stockContainer.appendChild(stockCardEl); // Adiciona na ordem para z-index funcionar corretamente
+            }
+            // Garante que o container do estoque seja visível ou oculto
+            stockContainer.style.visibility = numCards > 0 ? 'visible' : 'hidden';
+
+            // Atualiza o contador de estoque visível
+            updateStockCount();
+        }
+
+        /**
+         * Puxa uma carta do estoque para o descarte.
+         * @param {boolean} isInitialDraw - true se for a primeira carta do jogo.
+         */
+        function flipStock(isInitialDraw = false){
+            // Se esta é a primeira ação (tirar a primeira carta), inicia o timer
+            if (!gameActive && !isInitialDraw) { // Verifica se o jogo não está ativo E não é o draw inicial
+                handleFirstAction();
+            }
+
+            if(!stock.length) { // Se o estoque estiver vazio
+                document.getElementById('stockContainer').style.visibility = 'hidden'; // Esconde o maço do estoque
+                return;
+            }
+
+            if (!isInitialDraw) {
+                save(); // Salva o estado atual para permitir "Desfazer" APENAS se não for o draw inicial
+            }
+
+            waste = stock.shift(); // Remove a primeira carta do estoque e a coloca no descarte
+            updateStockCount();    // Atualiza o contador do estoque
+            updateStockVisuals();  // Atualiza a representação visual do estoque
+
+            // Cartas do estoque são adicionadas ao histórico de todas as cartas descartadas
+            allDiscardedCards.push(waste);
+
+            // Registro no relatório de descarte
+            discardSequence.push({ value: waste.value, suit: waste.suit, origin: 'Estoque' });
+            wasteCount++;
+            updateWasteCount(); // Atualiza o contador de descarte visível
+
+            // Resetar o combo e animar a barra
+            const oldComboCount = currentComboCount; // Salva o valor antigo para verificar se havia combo
+            currentComboCount = 0;
+            updateComboDisplay();
+            updateComboProgressBar(oldComboCount > 0); // true para animar o reset SE havia combo ativo
+
+            const w = document.getElementById('waste'); // Elemento da carta de descarte
+            w.className='card'; // Reseta classes
+            suitClass(w,waste.suit); // Define a cor do naipe
+            w.innerHTML=html(waste.value,waste.suit); // Atualiza o HTML da carta
+
+            update(); // Revalida movimentos possíveis
+        }
+
+
+        /**
+         * Função chamada ao clicar no estoque para puxar uma nova carta.
+         */
+        function drawFromStock(){
+            // Verifica se o jogo está ativo e se há cartas no estoque para puxar
+            if (gameActive && stock.length > 0) {
+                 flipStock(); // Puxa e revela a próxima carta
+            }
+        }
+
+
+        /**
+         * Função chamada ao clicar em uma carta da pirâmide.
+         * @param {string} p - A posição da carta na pirâmide (ex: 'A1').
+         */
+        function playCard(p){
+            // Se esta é a primeira ação, inicia o timer
+            if (!gameActive) {
+                handleFirstAction();
+            }
+
+            const e = cards[p];
+            if(!e || e.classList.contains('face-down')) return; // Não pode jogar carta virada para baixo ou inexistente
+
+            const cardValue = val(e.dataset.value);     // Valor numérico da carta clicada
+            const wasteValue = val(waste.value);        // Valor numérico da carta no descarte
+            const prevWasteSuit = waste.suit;           // Naipe da carta anterior no descarte
+            const prevWasteColor = getSuitColor(waste.suit); // Cor da carta anterior no descarte
+
+            // Verifica as regras de jogada:
+            // 1. Curinga (0) pode ser jogado sobre qualquer carta.
+            // 2. Qualquer carta pode ser jogada sobre um curinga.
+            // 3. Valor adjacente (+1 ou -1), incluindo o loop A-K-2 (1-13-1, 13-1-2).
+            const isPlayable = cardValue === 0 || wasteValue === 0 ||
+                                Math.abs(cardValue - wasteValue) === 1 ||
+                                (cardValue === 13 && wasteValue === 1) || // K sobre A
+                                (cardValue === 1 && wasteValue === 13);   // A sobre K
+
+            if(!isPlayable) return; // Se não for uma jogada válida, não faz nada
+
+            save(); // Salva o estado antes da jogada
+
+            // --- Lógica de Pontuação e Combo ---
+            let pointsGained = 0;
+
+            // Calcula a pontuação base dinâmica por remoção de topos (NOVA REGRA)
+            let removedTopCardsCount = 0;
+            for(const root of topPyramidRoots) {
+                if (topPyramidCardsState[root]) { // Se a carta da posição de topo foi removida
+                    removedTopCardsCount++;
+                }
+            }
+            // A pontuação base é 1 + (número de topos já removidos * 2)
+            let basePointsForPyramidCard = 1 + (removedTopCardsCount * 2);
+
+            // Pontuação base: carta da pirâmide para o descarte
+            pointsGained += basePointsForPyramidCard;
+            scoreBreakdown.cardFromPyramid.count++;
+            scoreBreakdown.cardFromPyramid.totalPoints += basePointsForPyramidCard;
+            scoreBreakdown.cardFromPyramid.lastBasePoints = basePointsForPyramidCard; // Armazena o último valor base para o relatório
+
+
+            // Pontuação extra: mesma cor
+            const currentCardColor = getSuitColor(e.dataset.suit);
+            if (currentCardColor !== 'wild' && prevWasteColor !== 'wild' && currentCardColor === prevWasteColor) {
+                pointsGained += scoreBreakdown.sameColor.pointsPerOccurrence;
+                scoreBreakdown.sameColor.count++;
+                scoreBreakdown.sameColor.totalPoints += scoreBreakdown.sameColor.pointsPerOccurrence;
+            }
+
+            // Pontuação extra: mesmo naipe (NOVA REGRA: +3 pontos)
+            if (e.dataset.suit !== '*' && prevWasteSuit !== '*' && e.dataset.suit === prevWasteSuit) {
+                pointsGained += scoreBreakdown.sameSuit.pointsPerOccurrence;
+                scoreBreakdown.sameSuit.count++;
+                scoreBreakdown.sameSuit.totalPoints += scoreBreakdown.sameSuit.pointsPerOccurrence;
+            }
+
+            // Lógica de Combo (Sequência de 5)
+            currentComboCount++; // Incrementa o contador de cartas da pirâmide em sequência
+            updateComboDisplay();
+            updateComboProgressBar(); // Atualiza a barra de progresso
+
+            if (currentComboCount >= COMBO_THRESHOLD) {
+                // Um combo de 5 cartas foi completado
+                totalCombosAchieved++; // Incrementa o contador de combos completos
+
+                let comboBonusPoints = 0;
+                // NOVOS VALORES DE BÔNUS DE COMBO
+                if (totalCombosAchieved === 1) {
+                    comboBonusPoints = 10;
+                } else if (totalCombosAchieved === 2) {
+                    comboBonusPoints = 15;
+                } else { // totalCombosAchieved >= 3
+                    comboBonusPoints = 20;
+                }
+
+                // Aplica o bônus de pontuação incremental
+                pointsGained += comboBonusPoints; // Pontos do combo são adicionados diretamente
+                scoreBreakdown.comboRewardPoints.count++;
+                scoreBreakdown.comboRewardPoints.totalPoints += comboBonusPoints;
+                scoreBreakdown.comboRewardPoints.lastBonusValue = comboBonusPoints; // Guarda o último bônus para o relatório
+
+                // Recompensa: Mover uma carta aleatória do descarte de volta para o estoque
+                // A carta atual no descarte (waste) não pode ser selecionada.
+                // Filtra para garantir que a carta atual do descarte não seja a selecionada para retorno.
+                const playableDiscardedCards = allDiscardedCards.filter(
+                    card => card.value !== waste.value || card.suit !== waste.suit
+                );
+
+                if (playableDiscardedCards.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * playableDiscardedCards.length);
+                    const cardToReturn = playableDiscardedCards[randomIndex];
+
+                    // Remove a carta da lista de allDiscardedCards
+                    // Precisa encontrar o índice corretamente, pois pode haver cartas duplicadas
+                    const indexToRemove = allDiscardedCards.findIndex(c => c.value === cardToReturn.value && c.suit === cardToReturn.suit);
+                    if (indexToRemove > -1) {
+                        allDiscardedCards.splice(indexToRemove, 1);
+                    }
+
+                    // Insere a carta de volta no estoque em uma posição aleatória
+                    const randomStockIndex = Math.floor(Math.random() * (stock.length + 1));
+                    stock.splice(randomStockIndex, 0, cardToReturn);
+
+                    updateStockCount(); // Atualiza o contador do estoque
+                    updateStockVisuals(); // Atualiza a representação visual do estoque
+                    showSnackbar(`COMBO! ${comboBonusPoints} pontos bônus e uma carta foi adicionada ao estoque!`, 4000); // MENSAGEM ALTERADA
+                    console.log(`[COMBO RECOMPENSA] Uma carta foi movida do descarte para o estoque.`);
+                } else {
+                     showSnackbar(`COMBO! ${comboBonusPoints} pontos bônus!`, 3000);
+                }
+                currentComboCount = 0; // Reseta o contador para iniciar a próxima sequência de 5
+                updateComboDisplay();
+                updateComboProgressBar(true); // Anima o reset da barra após a ativação do combo
+
+            }
+
+
+            // Aplica os pontos
+            currentScore += pointsGained;
+            updateScore(); // Atualiza a pontuação no header
+
+            // --- Remoção da Carta e Atualização do Jogo ---
+
+            // Verifica se a carta removida é um dos topos da pirâmide (D1, D2, D3)
+            if (topPyramidRoots.includes(p)) {
+                topPyramidCardsState[p] = true; // Marca como removida
+            }
+
+            delete cards[p]; // Remove a carta do objeto de cartas da pirâmide
+            e.remove();      // Remove o elemento HTML da carta da pirâmide
+
+            // A carta jogada da pirâmide se torna a nova carta de descarte
+            waste = { value: e.dataset.value, suit: e.dataset.suit };
+            allDiscardedCards.push(waste); // Adiciona a nova carta de descarte ao histórico
+            discardSequence.push({ value: waste.value, suit: waste.suit, origin: 'Pirâmide' });
+            wasteCount++;
+            updateWasteCount(); // Atualiza o contador de descarte visível
+
+            const w = document.getElementById('waste'); // Elemento da carta de descarte
+            w.className = 'card';
+            suitClass(w,waste.suit);
+            w.innerHTML = html(waste.value,waste.suit);
+
+            update(); // Atualiza o estado visual das cartas restantes
+        }
+
+        /**
+         * Atualiza o estado de todas as cartas na pirâmide (virar para cima/baixo, habilitar/desabilitar clique).
+         */
+        function update(){
+            for(const p of pos){ // Itera por todas as posições da pirâmide
+                const e = cards[p]; // Pega o elemento da carta naquela posição
+                if(!e) continue; // Se não houver carta nessa posição (já foi removida), pula
+
+                // Verifica se a carta está bloqueada por cartas "filhas" (abaixo dela na hierarquia)
+                const blocked = (child[p] || []).some(ch => cards[ch]);
+
+                if(blocked && !e.classList.contains('face-down')){
+                    // Se estiver bloqueada e virada para cima, vira para baixo
+                    e.classList.add('face-down');
+                    e.onclick = null; // Desabilita clique
+                    e.innerHTML = ''; // Remove o conteúdo (valor/naipe)
+                } else if(!blocked && e.classList.contains('face-down')){
+                    // Se não estiver bloqueada e virada para baixo, vira para cima
+                    e.classList.remove('face-down');
+                    suitClass(e,e.dataset.suit); // Restaura a cor
+                    e.innerHTML = html(e.dataset.value,e.dataset.suit); // Restaura o conteúdo
+                    e.onclick = () => playCard(p); // Habilita clique
+                }
+            }
+            checkEnd(); // Verifica as condições de fim de jogo
+        }
+
+        /**
+         * Verifica se o jogo terminou (vitória ou derrota).
+         */
+        function checkEnd(){
+            if(!Object.keys(cards).length){ // Se não houver mais cartas na pirâmide (Vitória)
+                stopGameTimer(); // Para o timer
+                // Pontuação por cartas restantes no estoque (NOVA REGRA: +1 ponto a cada 2 cartas, arredondando para cima)
+                const stockBonusPoints = Math.ceil(stock.length / 2) * scoreBreakdown.stockBonus.pointsPerOccurrence;
+                currentScore += stockBonusPoints;
+                scoreBreakdown.stockBonus.count = stock.length; // Guarda o número total de cartas para o relatório
+                scoreBreakdown.stockBonus.totalPoints = stockBonusPoints;
+
+                updateScore(); // Atualiza a pontuação final no header antes de mostrar a tela
+                gameActive = false; // Marca o jogo como inativo
+                updateUndoButton(); // Desabilita o botão desfazer no fim da partida
+                setComboBarEnabled(false); // Desabilita a barra de combo ao fim da partida
+                showGameEndModal("VITÓRIA"); // Mostra o modal de fim de jogo
+            }
+            // MODIFICADO: A condição de derrota agora só é verificada se o estoque estiver vazio.
+            // Se o estoque estiver vazio e não houver mais movimentos, é derrota.
+            else if(!stock.length && !movesLeft()){ // Se o estoque estiver vazio E não houver mais movimentos possíveis (Derrota)
+                stopGameTimer(); // Para o timer
+                gameActive = false; // Marca o jogo como inativo
+                updateUndoButton(); // Desabilita o botão desfazer no fim da partida
+                setComboBarEnabled(false); // Desabilita a barra de combo ao fim da partida
+                showGameEndModal("DERROTA"); // Mostra o modal de fim de jogo
+            }
+        }
+
+        /**
+         * Verifica se ainda há movimentos válidos na pirâmide ou se o estoque não está vazio.
+         * @returns {boolean} True se houver movimentos, False caso contrário.
+         */
+        function movesLeft(){
+            // Se ainda há cartas no estoque, sempre há um movimento possível (puxar do estoque)
+            if (stock.length > 0) return true;
+
+            const wasteValue = val(waste.value);
+            // Verifica se alguma carta na pirâmide pode ser jogada
+            return pos.some(p => {
+                const e = cards[p];
+                if(!e || e.classList.contains('face-down')) return false; // Ignora cartas removidas ou viradas para baixo
+
+                const cardValue = val(e.dataset.value);
+                // Mesma lógica de jogada válida que em playCard
+                return cardValue === 0 || wasteValue === 0 ||
+                    Math.abs(cardValue - wasteValue) === 1 ||
+                    (cardValue === 13 && wasteValue === 1) ||
+                    (cardValue === 1 && wasteValue === 13);
+            });
+        }
+
+        /**
+         * Exibe a tela de resultado final da partida (vitória ou derrota) e o relatório de descarte.
+         * Esta função agora é chamada após o usuário clicar em "Ver Escore Final" no modal de fim de jogo.
+         * @param {string} result - O resultado da partida ("VITÓRIA" ou "DERROTA").
+         */
+        function displayResultScreen(result){
+            // Oculta a área do jogo principal
+            document.getElementById('tableau').style.display = 'none';
+            document.getElementById('stockArea').style.display = 'none';
+
+            // Garante que o botão desfazer esteja desabilitado ao exibir o relatório
+            updateUndoButton(); // Chamada para garantir o estado correto
+
+            // Atualiza os títulos na tela de resultado
+            // Título "RESULTADO DA PARTIDA:" é fixo agora no HTML
+            const gameResultWordElement = document.getElementById('gameResultWord');
+            gameResultWordElement.innerText = result; // Define a palavra VITÓRIA ou DERROTA
+            gameResultWordElement.classList.remove('victory', 'defeat'); // Limpa classes anteriores
+            gameResultWordElement.classList.add(result.toLowerCase()); // Adiciona classe para estilização de cor
+
+            document.getElementById('gameResultScore').innerText = `PONTUAÇÃO FINAL: ${currentScore}`;
+            document.getElementById('gameResultTime').innerText = `TEMPO TOTAL: ${document.getElementById('time').innerText}`; // Adiciona o tempo total
+
+            // Determinar e exibir a classificação da pontuação (NOVOS PATAMARES AJUSTADOS)
+            const scoreRankElement = document.getElementById('scoreRank');
+            let rankText = "";
+
+            if (result === "DERROTA") {
+                rankText = "Você pode melhorar!";
+            } else { // Vitória
+                if (currentScore >= 0 && currentScore <= 4) { // Muito Baixa
+                    rankText = "Pontuação Muito Baixa. Pratique mais!";
+                } else if (currentScore >= 5 && currentScore <= 24) { // Baixa
+                    rankText = "Pontuação Baixa. Você pode fazer melhor!";
+                } else if (currentScore >= 25 && currentScore <= 44) { // Razoável
+                    rankText = "Pontuação Razoável. Bom começo!";
+                } else if (currentScore >= 45 && currentScore <= 69) { // Média
+                    rankText = "Pontuação Média. Continue assim!";
+                } else if (currentScore >= 70 && currentScore <= 89) { // Boa
+                    rankText = "Pontuação Boa! Ótimo desempenho!";
+                } else if (currentScore >= 90 && currentScore <= 110) { // Muito Boa (ANCHOR)
+                    rankText = "Pontuação Muito Boa! Impressionante!";
+                } else if (currentScore >= 111 && currentScore <= 140) { // Ótima
+                    rankText = "Pontuação Ótima! Você é um expert!";
+                } else if (currentScore >= 141 && currentScore <= 180) { // Excelente
+                    rankText = "Pontuação Excelente! Parabéns, mestre!";
+                } else if (currentScore >= 181) { // Maravilhosa
+                    rankText = "Pontuação Maravilhosa! Absolutamente lendário!";
+                } else { // Caso de pontuação negativa (raro se o mínimo é 0 para tempo)
+                     rankText = "Pontuação Muito Baixa. Pratique mais!";
+                }
+            }
+            scoreRankElement.innerText = rankText;
+
+
+            // Preenche a tabela de detalhe de pontuação
+            const scoreDetailTbody = document.getElementById('scoreDetailItems');
+            scoreDetailTbody.innerHTML = '';
+            // Mapeamento legível das chaves do scoreBreakdown para exibição
+            const scoreLabels = {
+                cardFromPyramid: 'Cartas da Pirâmide Removidas (Base)', // Atualizado label
+                sameColor: 'Bônus - Mesma Cor',
+                sameSuit: 'Bônus - Mesmo Naipe',
+                comboRewardPoints: 'Bônus - Combo (Pontos Fixos)', // Atualizado label
+                stockBonus: 'Bônus - Cartas no Estoque',
+                undoUsed: 'Penalidade - Desfazer',
+                timePenalty: 'Penalidade - Tempo Decorrido'
+            };
+
+            // Para manter a ordem na tabela
+            const orderedScoreKeys = ['cardFromPyramid', 'sameColor', 'sameSuit', 'comboRewardPoints', 'stockBonus', 'undoUsed', 'timePenalty'];
+
+            for (const key of orderedScoreKeys) {
+                const item = scoreBreakdown[key];
+                let pointsPerOcc = item.pointsPerOccurrence;
+                let displayCount = item.count;
+
+                if (key === 'cardFromPyramid') {
+                    // Para cartas da pirâmide, exibir "1 (+N topos)"
+                    const avgPoints = item.count > 0 ? (item.totalPoints / item.count) : 0;
+                    pointsPerOcc = avgPoints.toFixed(1); // Média de pontos por carta
+                    displayCount = item.count;
+                } else if (key === 'comboRewardPoints') {
+                    if (item.count > 0) {
+                        pointsPerOcc = "Varia"; // Porque os pontos fixos variam (10, 15, 20)
+                    } else {
+                        pointsPerOcc = 0;
+                    }
+                    displayCount = item.count;
+                } else if (key === 'stockBonus') {
+                    // Para estoque, o count é o número de cartas, pointsPerOccurrence é 1, totalPoints é ceil(count/2)
+                    displayCount = `${item.count} cartas`; // Exibe o número total de cartas
+                    pointsPerOcc = "+1 a cada 2 cartas"; // Texto descritivo
+                } else if (key === 'timePenalty') {
+                    pointsPerOcc = item.pointsPerOccurrence;
+                    displayCount = `${item.count * 10} segundos`;
+                }
+
+                // Exibe apenas se houve ocorrência ou se é o "desfazer" ou "tempo"
+                // Também se o total de pontos não for zero (ex: mesmo se count for 0 mas totalPoints for -5, mostra)
+                if (item.totalPoints !== 0 || item.count > 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${scoreLabels[key] || key}</td>
+                        <td>${(typeof pointsPerOcc === 'number' && pointsPerOcc > 0) ? '+' : ''}${pointsPerOcc}</td>
+                        <td>${displayCount}</td>
+                        <td>${item.totalPoints > 0 ? '+' : ''}${item.totalPoints}</td>
+                    `;
+                    scoreDetailTbody.appendChild(row);
+                }
+            }
+
+
+            // Preenche a tabela de relatório de descarte
+            const discardTbody = document.getElementById('discardItems');
+            discardTbody.innerHTML = ''; // Limpa qualquer conteúdo anterior
+
+            discardSequence.forEach((card, index) => {
+                const row = document.createElement('tr');
+                const id = `${card.value}${card.suit}`;
+                let corDisplay, corClass;
+
+                // Determina a cor e a classe CSS com base no naipe
+                if (card.suit === '♥' || card.suit === '♦') {
+                    corDisplay = 'vermelho';
+                    corClass = 'discard-red';
+                } else if (card.suit === '♠' || card.suit === '♣') {
+                    corDisplay = 'preto';
+                    corClass = 'discard-black';
+                } else { // Curinga
+                    corDisplay = 'curinga';
+                    corClass = 'discard-wild';
+                }
+
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${id}</td>
+                    <td>${card.origin}</td>
+                    <td>${card.suit}</td>
+                    <td class="${corClass}">${corDisplay}</td>
+                `;
+                discardTbody.appendChild(row);
+            });
+
+            // Torna a tela de relatório visível
+            document.getElementById('discardReportScreen').style.display = 'block';
+        }
+
+        /**
+         * Salva o estado atual do jogo na pilha de "Desfazer".
+         */
+        function save(){
+            undoStack.push({
+                html: document.getElementById('tableau').innerHTML, // Salva o HTML da pirâmide
+                stock: [...stock],                               // Cópia do array do estoque
+                waste: { ...waste },                             // Cópia do objeto da carta de descarte
+                wasteCount: wasteCount,                          // Valor do contador de descarte
+                currentScore: currentScore,                      // Salva a pontuação atual
+                currentComboCount: currentComboCount,            // Salva o combo atual
+                totalCombosAchieved: totalCombosAchieved,        // Salva o total de combos concluídos
+                allDiscardedCards: JSON.parse(JSON.stringify(allDiscardedCards)), // Cópia profunda
+                scoreBreakdown: JSON.parse(JSON.stringify(scoreBreakdown)), // Cópia profunda do detalhamento da pontuação
+                topPyramidCardsState: { ...topPyramidCardsState } // Cópia do status dos topos da pirâmide
+                // Não salvamos o estado do timer no undoStack porque o tempo é progressivo e a penalidade é acumulativa.
+                // O undo não deve "reverter" a passagem do tempo.
+            });
+            // Limita o tamanho da pilha de desfazer para evitar consumo excessivo de memória
+            if(undoStack.length > 10) { // Mantém um histórico de até 10 movimentos
+                undoStack.shift();
+            }
+        }
+
+        /**
+         * Desfaz o último movimento do jogador.
+         */
+        function undoMove(){
+            if(!gameActive){ // Se o jogo não está ativo (fim de partida, modal, etc.)
+                showSnackbar("O botão 'Desfazer' está inativo fora de uma partida.");
+                return;
+            }
+            if(undoLimit < 1){
+                showSnackbar("Você já usou todas as suas ações de desfazer para esta partida.");
+                return;
+            }
+            if(undoStack.length < 1){ // Se a pilha está vazia (não há o que desfazer)
+                showSnackbar("Não há movimentos para desfazer.");
+                return;
+            }
+
+            const s = undoStack.pop(); // Pega o último estado salvo
+
+            // Restaura o estado do jogo
+            stock = [...s.stock];
+            waste = { ...s.waste };
+            wasteCount = s.wasteCount;
+            currentScore = s.currentScore;
+            currentComboCount = s.currentComboCount;
+            totalCombosAchieved = s.totalCombosAchieved;
+            allDiscardedCards = JSON.parse(JSON.stringify(s.allDiscardedCards));
+            scoreBreakdown = JSON.parse(JSON.stringify(s.scoreBreakdown));
+            topPyramidCardsState = { ...s.topPyramidCardsState };
+
+            // Aplica a penalidade APÓS restaurar o score (para ser consistente com o estado salvo)
+            currentScore += scoreBreakdown.undoUsed.pointsPerOccurrence;
+            scoreBreakdown.undoUsed.count++;
+            scoreBreakdown.undoUsed.totalPoints += scoreBreakdown.undoUsed.pointsPerOccurrence;
+
+            updateStockCount();
+            updateStockVisuals(); // Atualiza a representação visual do estoque
+            updateWasteCount();
+            updateScore();
+            updateComboDisplay();
+            updateComboProgressBar(false, true); // Não anima o reset no undo
+            setComboBarEnabled(true); // Garante que a barra de combo esteja habilitada ao desfazer
+
+            // Restaura o HTML da pirâmide e reconstrói o objeto 'cards'
+            const t = document.getElementById('tableau');
+            t.innerHTML = s.html; // Restaura o HTML
+            cards = {}; // Limpa o objeto 'cards'
+            t.querySelectorAll('.card').forEach(el => {
+                cards[el.dataset.pos] = el; // Preenche 'cards' com as referências dos elementos restaurados
+                // Reabilita o onclick para cartas que não estavam viradas para baixo
+                if(!el.classList.contains('face-down')) {
+                    el.onclick = () => playCard(el.dataset.pos);
+                }
+            });
+
+            // Restaura a carta do descarte
+            const w = document.getElementById('waste');
+            w.className = 'card';
+            suitClass(w,waste.suit);
+            w.innerHTML = html(waste.value,waste.suit);
+
+            undoLimit--; // Decrementa o limite de usos do "desfazer"
+            updateUndoButton(); // Atualiza o texto do botão
+            update(); // Atualiza o estado visual das cartas na pirâmide
+        }
+
+        /**
+         * Exibe a Snackbar com uma mensagem.
+         * @param {string} message - A mensagem a ser exibida.
+         * @param {number} duration - Duração em milissegundos (padrão: 3000ms).
+         */
+        function showSnackbar(message, duration = 3000) {
+            const snackbar = document.getElementById("snackbar");
+            snackbar.innerText = message;
+            snackbar.classList.add("show");
+            setTimeout(() => {
+                snackbar.classList.remove("show");
+            }, duration);
+        }
+
+        /**
+         * Exibe o modal de confirmação de nova partida.
+         */
+        function confirmNewGame(){
+            // Se o jogo está ativo, o modal de confirmação é importante
+            if (gameActive) {
+                stopGameTimer(); // Pausa o timer enquanto o modal está aberto
+                updateUndoButton(); // Desabilita o botão desfazer quando o modal de confirmação aparece
+                document.getElementById('confirmModal').classList.add('show');
+            } else {
+                // Se o jogo não está ativo (ex: no relatório final), pode iniciar um novo diretamente
+                startNewGame();
+            }
+        }
+
+        /**
+         * Oculta o modal de confirmação de nova partida.
+         */
+        function hideConfirmModal(){
+            document.getElementById('confirmModal').classList.remove('show');
+            // Retoma o timer e habilita o botão undo se o jogo ainda estiver ativo
+            if (gameActive) {
+                startGameTimer(); // Reinicia o timer
+                updateUndoButton(); // Reabilita o botão desfazer
+            }
+        }
+
+        /**
+         * Exibe o modal de instruções.
+         */
+        function showInstructions(){
+            if (gameActive) {
+                stopGameTimer(); // Pausa o timer enquanto o modal está aberto
+                updateUndoButton(); // Desabilita o botão desfazer
+            }
+            document.getElementById('instructionsModal').classList.add('show');
+        }
+
+        /**
+         * Oculta o modal de instruções.
+         */
+        function hideInstructionsModal(){
+            document.getElementById('instructionsModal').classList.remove('show');
+            if (gameActive) {
+                startGameTimer(); // Reinicia o timer
+                updateUndoButton(); // Habilita o botão desfazer
+            }
+        }
+
+        /**
+         * Exibe o modal de fim de partida.
+         * @param {string} result - O resultado da partida ("VITÓRIA" ou "DERROTA").
+         */
+        function showGameEndModal(result) {
+            lastGameResult = result; // Armazena o resultado para ser usado ao ver o escore final
+            const gameEndTitle = document.getElementById('gameEndTitle');
+            const gameEndMessage = document.getElementById('gameEndMessage');
+
+            gameEndTitle.innerText = result === "VITÓRIA" ? "PARABÉNS!" : "FIM DE JOGO!";
+            gameEndMessage.innerText = result === "VITÓRIA" ?
+                `Você limpou a pirâmide e alcançou a vitória com ${currentScore} pontos!` :
+                `Você ficou sem movimentos. Sua pontuação final foi de ${currentScore} pontos.`;
+
+            document.getElementById('gameEndModal').classList.add('show');
+            updateUndoButton(); // Desabilita o botão desfazer quando a modal de fim de partida aparece
+        }
+
+        /**
+         * Oculta o modal de fim de partida.
+         */
+        function hideGameEndModal() {
+            document.getElementById('gameEndModal').classList.remove('show');
+            // Não habilita o botão desfazer aqui, pois o relatório de fim de partida pode ser o próximo passo.
+            // O botão será reabilitado apenas em startNewGame()
+        }
+
+        /**
+         * Exibe o modal de informações do combo.
+         */
+        function showComboInfoModal() {
+            if (gameActive) {
+                stopGameTimer(); // Pausa o timer enquanto o modal está aberto
+                updateUndoButton(); // Desabilita o botão desfazer
+            }
+            document.getElementById('comboInfoModal').classList.add('show');
+        }
+
+        /**
+         * Oculta o modal de informações do combo.
+         */
+        function hideComboInfoModal() {
+            document.getElementById('comboInfoModal').classList.remove('show');
+            if (gameActive) {
+                startGameTimer(); // Reinicia o timer
+                updateUndoButton(); // Habilita o botão desfazer
+            }
+        }
+
+
+        // --- Inicialização do Jogo ---
+        // Inicia um novo jogo assim que a página é carregada
+        window.onload = startNewGame;
+    </script>
+</body>
+</html>
