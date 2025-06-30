@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Dados</title>
+    <style>
+        /* Estilos Gerais */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Cabeçalho */
+        header {
+            width: 100%;
+            background-color: #4CAF50; /* Verde vibrante */
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: sticky; /* Fixo no topo */
+            top: 0;
+            z-index: 1000;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            letter-spacing: 1px;
+            /* Removido ou ajustado para não exibir conteúdo */
+            height: 0; /* Oculta a altura se vazio, ou display: none; se for removido o h1 */
+            overflow: hidden;
+            padding: 0; /* Remove padding */
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            margin-top: 10px;
+            font-size: 1.1em;
+            flex-wrap: wrap;
+            padding: 0 15px;
+        }
+
+        .header-content span {
+            padding: 5px 10px;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 5px;
+            white-space: nowrap;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-buttons button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s ease;
+        }
+
+        .header-buttons button:hover {
+            background-color: #1976D2;
+        }
+
+        /* Contêiner Principal do Jogo */
+        #main-content-container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            margin: 20px 0;
+            gap: 25px;
+        }
+
+        #game-elements {
+            display: flex;
+            flex-direction: column;
+            flex: 2;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            gap: 25px;
+        }
+
+        #score-table-area {
+            flex: 1;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+        }
+
+        #score-rules-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #score-rules-table th, #score-rules-table td {
+            border: 1px solid #eee;
+            padding: 10px;
+            text-align: left;
+        }
+
+        #score-rules-table th {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            color: #444;
+        }
+
+        #score-rules-table td:last-child {
+            text-align: center;
+        }
+
+        #score-rules-table tr.scored {
+            background-color: #e8f5e9;
+            opacity: 0.7;
+        }
+
+        #score-rules-table tr.eliminated {
+            background-color: #ffebee;
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .score-action-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .score-action-button:hover:not(:disabled) {
+            background-color: #388E3C;
+        }
+
+        .score-action-button.zero-score {
+            background-color: #FFC107;
+            color: #333;
+        }
+
+        .score-action-button.zero-score:hover:not(:disabled) {
+            background-color: #FFA000;
+        }
+
+        .score-action-button:disabled {
+            background-color: #BDBDBD;
+            cursor: not-allowed;
+        }
+
+        .eliminate-button {
+            background-color: #f44336;
+        }
+
+        .eliminate-button:hover:not(:disabled) {
+            background-color: #d32f2f;
+        }
+
+        /* Seções Distintas */
+        .game-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: #fafafa;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+        }
+
+        .game-section h2 {
+            margin-top: 0;
+            color: #555;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Dados */
+        #dice-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            min-height: 120px;
+        }
+
+        .die {
+            width: 80px;
+            height: 80px;
+            background-color: #eee;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4.5em;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .die:hover:not(.locked):not(.disabled-interaction) {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+        }
+
+        .die.locked {
+            background-color: #FFEB3B;
+            border-color: #FBC02D;
+            box-shadow: 0 0 15px rgba(255,235,59,0.7);
+        }
+
+        .die.disabled-interaction {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+            background-color: #e0e0e0;
+            border-color: #c0c0c0;
+        }
+
+        /* Animação de Giro dos Dados */
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1); }
+            75% { transform: rotate(270deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .die.rolling {
+            animation: roll 0.5s ease-out;
+        }
+
+        /* Área de Ações e Mensagens */
+        /* Novo layout para o botão e instruções */
+        #roll-button { /* Estilos para o botão que foi movido para fora do action-section */
+            background-color: #03A9F4;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            margin: 20px auto 0 auto; /* Centraliza e adiciona margem superior */
+            display: block; /* Garante que o botão ocupe sua própria linha */
+        }
+
+        #roll-button:hover:not(:disabled) {
+            background-color: #0288D1;
+            transform: translateY(-2px);
+        }
+
+        #roll-button:disabled {
+            background-color: #BDBDBD;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+
+        #action-section { /* Conteiner para as instruções */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px; /* Margem menor, pois o botão está acima */
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+            width: calc(100% - 30px); /* Ajusta largura para preencher o game-elements */
+            box-sizing: border-box; /* Inclui padding e border na largura */
+        }
+
+        /* Contêiner de Mensagens/Instruções */
+        #game-instructions {
+            text-align: center;
+            min-height: 40px;
+            font-size: 0.9em;
+            color: #666;
+            margin: 0; /* Remove margens padrão do p */
+        }
+
+        .message.success {
+            color: #2E7D32;
+        }
+
+        .message.warning {
+            color: #FFC107;
+        }
+
+        .message.error {
+            color: #D32F2F;
+        }
+
+        /* Animação para a mensagem de erro pulsante */
+        @keyframes pulse-red {
+            0% { color: #D32F2F; transform: scale(1); }
+            50% { color: #FF5252; transform: scale(1.02); }
+            100% { color: #D32F2F; transform: scale(1); }
+        }
+
+        #game-instructions.error-pulsing {
+            animation: pulse-red 1.5s infinite alternate;
+            font-weight: bold;
+        }
+
+
+        /* Modais */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-content h3 {
+            color: #4CAF50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .modal-content ul {
+            list-style-type: disc;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 25px;
+        }
+        .modal-buttons button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        .modal-buttons button.cancel {
+            background-color: #f44336;
+        }
+        .modal-buttons button:hover {
+            background-color: #1976D2;
+        }
+        .modal-buttons button.cancel:hover {
+            background-color: #d32f2f;
+        }
+
+        /* Estilos para a nova modal de pontuação */
+        #score-info-modal .modal-content {
+            text-align: center;
+        }
+        /* Ajuste para o novo título (XX pontos!) */
+        #score-info-modal #modal-score-title {
+            font-size: 2.5em; /* Aumenta o tamanho para o score principal */
+            margin-bottom: 15px;
+            color: #4CAF50; /* Cor para o score principal */
+            font-weight: bold;
+            border-bottom: none; /* Remove a linha de baixo do título principal */
+            padding-bottom: 0;
+        }
+        /* Ajuste para o novo parágrafo (nome da combinação) */
+        #score-info-modal #modal-combination-name-display { /* Novo ID para o parágrafo */
+            font-size: 1.5em; /* Ajusta o tamanho para o nome da combinação */
+            margin-bottom: 25px;
+            color: #555; /* Cor mais suave */
+            font-weight: normal; /* Garante que não seja negrito a menos que especificado */
+        }
+        #score-info-modal #modal-action-button {
+            background-color: #4CAF50;
+            padding: 12px 25px;
+            font-size: 1.1em;
+        }
+        #score-info-modal #modal-action-button:hover {
+            background-color: #388E3C;
+        }
+
+        /* Estilos para a tela de resultados finais */
+        #final-results-screen {
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #final-results-screen h2 {
+            font-size: 2.5em;
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        #final-results-screen p {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        #final-results-screen ul {
+            list-style: none;
+            padding: 0;
+            width: 80%;
+            max-width: 400px;
+            text-align: left;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        #final-results-screen ul li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #final-results-screen ul li:last-child {
+            border-bottom: none;
+        }
+
+        #final-results-screen ul li .status-icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+
+        #final-results-screen ul li.scored-item {
+            color: #2E7D32;
+            font-weight: bold;
+        }
+        #final-results-screen ul li.scored-item .status-icon {
+            color: #4CAF50;
+        }
+
+        #final-results-screen ul li.eliminated-item {
+            color: #D32F2F;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        #final-results-screen ul li.eliminated-item .status-icon {
+            color: #f44336;
+        }
+
+        #final-results-screen ul li.unused-item {
+            color: #666;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        #final-results-screen ul li.unused-item .status-icon {
+            color: #999;
+        }
+
+        #final-results-screen #play-again-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-top: 30px;
+        }
+
+        #final-results-screen #play-again-button:hover {
+            background-color: #388E3C;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1></h1> 
+        <div class="header-content">
+            <span>Rodada: <span id="current-round">1</span></span>
+            <span>Pontuação Total: <span id="total-score">0</span></span>
+            <div class="header-buttons">
+                <button id="rules-button">Regras</button>
+                <button id="reset-game-button">Novo Jogo</button>
+            </div>
+        </div>
+    </header>
+
+    <div id="main-content-container">
+        </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" data-modal="rules-modal">&times;</span>
+            <h3>Regras Básicas do Jogo de Dados</h3>
+            <ul>
+                <li>O objetivo é acumular a maior pontuação possível. O jogo termina quando não houver mais combinações para pontuar.</li>
+                <li>Você começa cada rodada com **5 dados** e terá **3 rolagens** por rodada.</li>
+                <li>**A rodada inicia com sua primeira rolagem.** Após a primeira rolagem, você pode **prender** qualquer dado clicando nele (ele ficará amarelo). Dados presos não serão relançados. Clicar novamente em um dado preso o **libera**.</li>
+                <li>Após qualquer rolagem, você pode **escolher uma combinação na tabela ao lado para pontuar**, clicando no botão "Pontuar: X" ao lado dela. A pontuação será calculada com base nos **dados atualmente na mesa**, independentemente de estarem presos ou não.</li>
+                <li>**Uma vez que uma combinação é pontuada, ela não pode ser usada novamente** na partida. Ela será marcada na tabela. Você pode pontuar 0 pontos.</li>
+                <li>Se você não pontuar após 3 rolagens, ou se em qualquer momento os dados rolados não permitirem **nenhuma combinação disponível para pontuar**, você será obrigado a **escolher uma combinação disponível na tabela para ELIMINAR**, sem pontuar.</li>
+                <li>A cada rodada, ao pontuar (ou eliminar), seus dados são resetados para a próxima rodada e uma nova rodada começa.</li>
+            </ul>
+            <h4>Detalhes da Pontuação:</h4>
+            <ul>
+                <li>**Quinteto (5 dados iguais):** 50 pontos.</li>
+                <li>**Sequência Alta (2-3-4-5-6):** 40 pontos.</li>
+                <li>**Sequência Baixa (1-2-3-4-5):** 30 pontos.</li>
+                <li>**Full-House (um trio e um par):** 25 pontos.</li>
+                <li>**Quadra (4 dados iguais):** Soma dos 4 dados iguais + valor do quinto dado.</li>
+                <li>**Trinca (3 dados iguais):** Soma dos 3 dados iguais.</li>
+                <li>**Quantidade de X (X=1 a 6):** Soma dos dados que mostram o número X. (Ex: Três 3s (3-3-3-4-5) pontuado como Quantidade de 3s vale 3+3+3 = 9 pontos).</li>
+                <li>**Aleatória (qualquer combinação):** Soma de todos os 5 dados.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="new-game-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" data-modal="new-game-modal">&times;</span>
+            <h3>Novo Jogo?</h3>
+            <p>Tem certeza que deseja iniciar um Novo Jogo? Sua pontuação atual será perdida.</p>
+            <div class="modal-buttons">
+                <button id="confirm-new-game-button">Sim, Novo Jogo</button>
+                <button id="cancel-new-game-button" class="cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="score-info-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-score-title"></h3> 
+            <p id="modal-combination-name-display"></p> 
+            <div class="modal-buttons">
+                <button id="modal-action-button">Próxima Rodada</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const unicodeDice = ['&#x2680;', '&#x2681;', '&#x2682;', '&#x2683;', '&#x2684;', '&#x2685;']; // ⚀ a ⚅
+        const NUM_DICE = 5;
+        const MAX_ROLLS_PER_ROUND = 3;
+
+        const mainContentContainer = document.getElementById('main-content-container');
+        
+        // References to elements that will be inside `game-elements` or `score-table-area`
+        // These will be assigned *after* the elements are created dynamically in initializeGame
+        let diceArea;
+        let rollButton;
+        let gameInstructions;
+        let scoreRulesTableBody;
+        let scoreRulesTable; // Reference to the table itself
+
+        // These references are for static elements in the HTML header
+        const totalScoreSpan = document.getElementById('total-score');
+        const currentRoundSpan = document.getElementById('current-round');
+        const rulesButton = document.getElementById('rules-button');
+        const resetGameButton = document.getElementById('reset-game-button');
+
+        // Modal references
+        const rulesModal = document.getElementById('rules-modal');
+        const closeModalButtons = document.querySelectorAll('.close-button');
+        const newGameModal = document.getElementById('new-game-modal');
+        const confirmNewGameButton = document.getElementById('confirm-new-game-button');
+        const cancelNewGameButton = document.getElementById('cancel-new-game-button');
+        
+        const scoreInfoModal = document.getElementById('score-info-modal');
+        const modalScoreTitle = document.getElementById('modal-score-title');
+        const modalCombinationNameDisplay = document.getElementById('modal-combination-name-display'); 
+        const modalActionButton = document.getElementById('modal-action-button');
+
+
+        let allDice = [];
+        let totalGameScore = 0;
+        let currentRound = 1;
+        let rollsLeft = MAX_ROLLS_PER_ROUND;
+        let hasRolledThisRound = false; 
+
+        const initialCombinationsState = {
+            'Quinteto': { used: false, eliminated: false, lastScore: null },
+            'Sequencia Alta': { used: false, eliminated: false, lastScore: null },
+            'Sequencia Baixa': { used: false, eliminated: false, lastScore: null },
+            'Full-House': { used: false, eliminated: false, lastScore: null },
+            'Quadra': { used: false, eliminated: false, lastScore: null },
+            'Trinca': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 1': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 2': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 3': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 4': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 5': { used: false, eliminated: false, lastScore: null },
+            'Quantidade de 6': { used: false, eliminated: false, lastScore: null },
+            'Aleatoria': { used: false, eliminated: false, lastScore: null }
+        };
+        let combinations; // Will be initialized in initializeGame
+
+        // --- Funções de Jogo ---
+
+        function initializeGame() {
+            console.log('initializeGame: Iniciando novo jogo.');
+
+            // Clear main content and build game structure
+            mainContentContainer.innerHTML = ''; 
+
+            const gameElementsDiv = document.createElement('div');
+            gameElementsDiv.id = 'game-elements';
+            gameElementsDiv.innerHTML = `
+                <div id="dice-section" class="game-section">
+                    <h2>MESA</h2>
+                    <div id="dice-area"></div>
+                </div>
+                <button id="roll-button">Iniciar Rodada</button>
+                <div id="action-section">
+                    <p id="game-instructions">Clique em "Iniciar Rodada" para iniciar a rodada.</p>
+                </div>
+            `;
+            mainContentContainer.appendChild(gameElementsDiv);
+
+            const scoreTableAreaDiv = document.createElement('div');
+            scoreTableAreaDiv.id = 'score-table-area';
+            scoreTableAreaDiv.innerHTML = `
+                <table id="score-rules-table">
+                    <thead>
+                        <tr>
+                            <th>Combinação</th>
+                            <th>Pontuação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            `;
+            mainContentContainer.appendChild(scoreTableAreaDiv);
+
+            // Re-assign references to newly created elements AFTER they are appended to the DOM
+            diceArea = document.getElementById('dice-area');
+            rollButton = document.getElementById('roll-button');
+            gameInstructions = document.getElementById('game-instructions');
+            scoreRulesTableBody = document.querySelector('#score-rules-table tbody');
+            scoreRulesTable = document.getElementById('score-rules-table'); // Assign the table reference
+
+            totalGameScore = 0;
+            currentRound = 1;
+            rollsLeft = MAX_ROLLS_PER_ROUND;
+            hasRolledThisRound = false; 
+            
+            combinations = JSON.parse(JSON.stringify(initialCombinationsState)); // Deep copy to reset
+            console.log('initializeGame: Combinações resetadas para o estado inicial.', combinations);
+            
+            updateDisplay();
+            resetRound(); 
+            rollButton.disabled = false;
+            gameInstructions.textContent = 'Clique em "Iniciar Rodada" para iniciar a rodada.';
+            gameInstructions.classList.remove('success', 'error', 'warning', 'error-pulsing');
+            updateRollButtonText();
+
+            // Add event listener to the new roll button
+            // It's crucial to add the listener here, after the button is created
+            rollButton.removeEventListener('click', handleRollButtonClick); // Defensive: remove if already attached
+            rollButton.addEventListener('click', handleRollButtonClick);
+        }
+
+        function resetRound() {
+            console.log('resetRound: Resetando a rodada.');
+            allDice = [];
+            diceArea.innerHTML = '';
+            for (let i = 0; i < NUM_DICE; i++) {
+                const dieElement = document.createElement('div');
+                dieElement.classList.add('die', 'disabled-interaction'); 
+                dieElement.innerHTML = unicodeDice[0];
+                dieElement.dataset.index = i;
+                dieElement.dataset.value = 0;
+                dieElement.classList.remove('locked');
+                dieElement.addEventListener('click', (event) => toggleLockDie(event.target)); // Pass the clicked element
+                allDice.push({ value: 0, isLocked: false, element: dieElement });
+                diceArea.appendChild(dieElement);
+            }
+            rollsLeft = MAX_ROLLS_PER_ROUND;
+            hasRolledThisRound = false; 
+            updateDisplay();
+            updateRollButtonText();
+            renderScoreTable(); 
+            rollButton.disabled = false;
+            gameInstructions.textContent = 'Clique em "Iniciar Rodada" para iniciar a rodada.';
+            gameInstructions.classList.remove('success', 'error', 'warning', 'error-pulsing');
+            console.log('resetRound: Rodada resetada e tabela renderizada.');
+        }
+
+        async function handleRollButtonClick() {
+            if (rollsLeft <= 0) {
+                gameInstructions.textContent = 'Você não tem mais rolagens nesta rodada.';
+                gameInstructions.classList.add('warning');
+                return;
+            }
+
+            if (!hasRolledThisRound) {
+                allDice.forEach(die => die.element.classList.remove('disabled-interaction'));
+                hasRolledThisRound = true;
+            }
+
+            rollButton.disabled = true;
+            gameInstructions.textContent = 'Rolando dados...';
+            gameInstructions.classList.remove('success', 'error', 'warning', 'error-pulsing');
+
+            const diceToRoll = allDice.filter(d => !d.isLocked);
+            await rollDice(diceToRoll);
+
+            rollsLeft--;
+            updateRollButtonText();
+
+            renderScoreTable(); 
+
+            const currentDiceValues = allDice.map(d => d.value);
+            const possibleScores = calculatePossibleScores(currentDiceValues);
+            
+            const hasAnyAvailableScorableCombo = Object.keys(combinations).some(comboName => {
+                const comboState = combinations[comboName];
+                if (comboState.used || comboState.eliminated) return false;
+                return possibleScores.hasOwnProperty(comboName); 
+            });
+
+
+            if (rollsLeft === 0 && !hasAnyAvailableScorableCombo) {
+                 gameInstructions.textContent = 'FIM DE ROLAGENS! Nenhuma combinação disponível para pontuar. Escolha uma para ELIMINAR na tabela.';
+                 gameInstructions.classList.add('error', 'error-pulsing');
+                 finalizeRoundWithElimination(); // Chamada para a nova lógica sem modal
+            } else if (!hasAnyAvailableScorableCombo && rollsLeft > 0) {
+                 gameInstructions.textContent = `Nenhuma combinação pontuável. Tente rolar novamente!`;
+                 gameInstructions.classList.add('warning');
+                 rollButton.disabled = false; 
+            } else {
+                 gameInstructions.textContent = `Selecione uma combinação para pontuar ou ROLAR NOVAMENTE!`;
+                 gameInstructions.classList.remove('warning', 'error', 'success', 'error-pulsing');
+                 rollButton.disabled = false; 
+            }
+
+            if (rollsLeft === 0 && hasAnyAvailableScorableCombo) {
+                rollButton.disabled = true; 
+                gameInstructions.textContent = 'FIM DE ROLAGENS! Selecione uma combinação para pontuar.';
+                gameInstructions.classList.remove('error-pulsing');
+            }
+        }
+
+
+        function rollDice(diceToRoll) {
+            return new Promise(resolve => {
+                let animationsPending = 0;
+                diceToRoll.forEach(die => {
+                    const newValue = Math.floor(Math.random() * 6) + 1;
+                    die.value = newValue;
+                    die.element.innerHTML = unicodeDice[newValue - 1];
+                    die.element.dataset.value = newValue;
+                    die.element.classList.add('rolling');
+                    animationsPending++;
+                    die.element.addEventListener('animationend', () => {
+                        die.element.classList.remove('rolling');
+                        animationsPending--;
+                        if (animationsPending === 0) {
+                            resolve();
+                        }
+                    }, { once: true });
+                });
+                if (diceToRoll.length === 0) {
+                    resolve();
+                }
+            });
+        }
+
+        function toggleLockDie(dieElement) {
+            // Check if rollButton exists and is not disabled (meaning a roll has happened or is pending)
+            if (rollButton && hasRolledThisRound && !rollButton.disabled) { 
+                const index = parseInt(dieElement.dataset.index);
+                const dieObj = allDice[index];
+
+                if (dieObj) {
+                    dieObj.isLocked = !dieObj.isLocked;
+                    dieElement.classList.toggle('locked', dieObj.isLocked);
+                }
+            } else if (rollButton && !hasRolledThisRound) {
+                gameInstructions.textContent = 'Lance os dados primeiro!';
+                gameInstructions.classList.add('warning');
+                setTimeout(() => gameInstructions.classList.remove('warning'), 2000);
+            }
+        }
+
+        function calculatePossibleScores(diceValues) {
+            const counts = {};
+            diceValues.forEach(val => {
+                counts[val] = (counts[val] || 0) + 1;
+            });
+            const sortedValues = [...diceValues].sort((a,b) => a-b);
+            const possibleScores = {};
+
+            // Quinteto
+            for (let i = 1; i <= 6; i++) {
+                if (counts[i] === 5) {
+                    possibleScores['Quinteto'] = 50;
+                    break;
+                }
+            }
+
+            // Sequencia Alta (2-3-4-5-6)
+            if (sortedValues.length === 5 && new Set(sortedValues).size === 5 && sortedValues[0] === 2 && sortedValues[4] === 6) {
+                possibleScores['Sequencia Alta'] = 40;
+            }
+
+            // Sequencia Baixa (1-2-3-4-5)
+            if (sortedValues.length === 5 && new Set(sortedValues).size === 5 && sortedValues[0] === 1 && sortedValues[4] === 5) {
+                possibleScores['Sequencia Baixa'] = 30;
+            }
+
+            // Full-House (um trio e um par)
+            const distinctCounts = Object.values(counts);
+            if ((distinctCounts.includes(3) && distinctCounts.includes(2)) && distinctCounts.length === 2) {
+                possibleScores['Full-House'] = 25;
+            }
+
+            // Quadra (4 dados iguais + 5º dado)
+            for (let i = 1; i <= 6; i++) {
+                if (counts[i] >= 4) {
+                    let quadraVal = i;
+                    let sum = quadraVal * 4;
+                    let fifthDieValue = 0;
+                    const tempValues = [...diceValues];
+                    let foundCount = 0;
+                    for (let j = 0; j < tempValues.length; j++) {
+                        if (tempValues[j] === quadraVal && foundCount < 4) {
+                            foundCount++;
+                            tempValues[j] = null; // Marca o dado como "usado" para a quadra
+                        }
+                    }
+                    for (let j = 0; j < tempValues.length; j++) {
+                        if (tempValues[j] !== null) { // Pega o primeiro dado não "usado"
+                            fifthDieValue = tempValues[j];
+                            break;
+                        }
+                    }
+                    possibleScores['Quadra'] = sum + fifthDieValue;
+                }
+            }
+
+            // Trinca (3 dados iguais)
+            for (let i = 1; i <= 6; i++) {
+                if (counts[i] >= 3) {
+                    possibleScores['Trinca'] = (i * 3);
+                }
+            }
+
+            // Quantidade de X (X=1 a 6)
+            for (let i = 1; i <= 6; i++) {
+                if (counts[i] > 0) {
+                    possibleScores[`Quantidade de ${i}`] = i * counts[i];
+                }
+            }
+
+            // Aleatória (soma de todos os 5 dados)
+            if (diceValues.length === 5) {
+                 possibleScores['Aleatoria'] = diceValues.reduce((sum, val) => sum + val, 0);
+            }
+
+            return possibleScores;
+        }
+
+        function updateDisplay() {
+            totalScoreSpan.textContent = totalGameScore;
+            currentRoundSpan.textContent = currentRound;
+        }
+
+        function updateRollButtonText() {
+            if (!hasRolledThisRound) {
+                rollButton.textContent = "Iniciar Rodada";
+            } else {
+                rollButton.textContent = `Rolar Dados (${rollsLeft} restantes)`;
+            }
+        }
+
+        function renderScoreTable(isEliminationMode = false) {
+            console.log('renderScoreTable: Renderizando tabela. Current combinations state:', JSON.parse(JSON.stringify(combinations)), 'Elimination Mode:', isEliminationMode);
+            scoreRulesTableBody.innerHTML = '';
+            const currentDiceValues = allDice.map(d => d.value).filter(val => val !== 0); // Filter out 0s before calculation
+            const possibleScores = calculatePossibleScores(currentDiceValues);
+
+            for (const name in combinations) {
+                const combo = combinations[name];
+                const row = scoreRulesTableBody.insertRow();
+                row.dataset.combinationName = name;
+
+                const nameCell = row.insertCell();
+                nameCell.textContent = name;
+
+                const scoreCell = row.insertCell();
+                
+                if (combo.used) {
+                    row.classList.add('scored');
+                    scoreCell.textContent = combo.lastScore; 
+                } else if (combo.eliminated) {
+                    row.classList.add('eliminated');
+                    scoreCell.textContent = 'Eliminado'; 
+                } else {
+                    const button = document.createElement('button');
+                    button.classList.add('score-action-button');
+                    
+                    // Check if dice values are available for scoring (not just 0s from initialization)
+                    const diceAreNotZero = currentDiceValues.length === NUM_DICE && currentDiceValues.every(val => val !== 0);
+
+                    if (isEliminationMode) {
+                        button.textContent = `ELIMINAR`;
+                        button.classList.add('eliminate-button');
+                        button.disabled = false; // Always enabled for elimination when in this mode
+                        button.addEventListener('click', () => eliminateCombination(name));
+                    } else {
+                        let scoreValue = possibleScores.hasOwnProperty(name) ? possibleScores[name] : 0;
+                        button.textContent = `Pontuar: ${scoreValue}`;
+                        button.addEventListener('click', () => scoreCombination(name));
+                        // Buttons are disabled if:
+                        // - Not rolled this round yet (hasRolledThisRound is false)
+                        // - A modal is open (score info modal)
+                        // - No actual dice values are displayed yet (all 0s from reset)
+                        button.disabled = !hasRolledThisRound || scoreInfoModal.style.display === 'flex' || !diceAreNotZero;
+
+                        if (scoreValue === 0 && hasRolledThisRound && diceAreNotZero) {
+                            button.classList.add('zero-score');
+                        }
+                    }
+                    scoreCell.appendChild(button);
+                }
+            }
+            console.log('renderScoreTable: Tabela renderizada.');
+        }
+
+
+        function scoreCombination(combinationName) {
+            const currentDiceValues = allDice.map(d => d.value).filter(val => val !== 0);
+            const possibleScores = calculatePossibleScores(currentDiceValues);
+
+            if (!combinations[combinationName].used && !combinations[combinationName].eliminated) {
+                const scoreToAdd = possibleScores.hasOwnProperty(combinationName) ? possibleScores[combinationName] : 0; 
+                totalGameScore += scoreToAdd;
+                
+                combinations[combinationName].used = true;
+                combinations[combinationName].lastScore = scoreToAdd;
+                
+                updateDisplay();
+                // We will re-render table after modal close
+                
+                document.querySelectorAll('.score-action-button').forEach(btn => btn.disabled = true);
+                gameInstructions.classList.remove('error-pulsing'); // Remove pulsing if player scores
+
+                modalScoreTitle.textContent = `${scoreToAdd} pontos!`; 
+                modalCombinationNameDisplay.textContent = combinationName; 
+
+                checkEndGameAndShowScoreModal();
+                rollButton.disabled = true; 
+            } else {
+                gameInstructions.textContent = 'Essa combinação já foi usada ou eliminada.';
+                gameInstructions.classList.add('error');
+                setTimeout(() => gameInstructions.classList.remove('error'), 2000);
+            }
+        }
+
+        function checkEndGameAndShowScoreModal() {
+            const availableCombinations = Object.values(combinations).filter(c => !c.used && !c.eliminated);
+            
+            if (availableCombinations.length === 0) {
+                modalActionButton.textContent = 'Ver Resultados';
+                modalActionButton.removeEventListener('click', nextRoundAndRoll); 
+                modalActionButton.addEventListener('click', showFinalResults);
+                scoreInfoModal.style.display = 'flex';
+                gameInstructions.textContent = `Jogo finalizado! Clique em "Ver Resultados" para saber sua pontuação final.`;
+                gameInstructions.classList.add('success');
+            } else {
+                modalActionButton.textContent = 'Próxima Rodada';
+                modalActionButton.removeEventListener('click', showFinalResults); 
+                modalActionButton.addEventListener('click', nextRoundAndRoll); 
+                scoreInfoModal.style.display = 'flex';
+            }
+        }
+
+        async function nextRoundAndRoll() {
+            scoreInfoModal.style.display = 'none';
+            currentRound++;
+            resetRound(); 
+
+            gameInstructions.textContent = 'Rolando dados para a próxima rodada...';
+            gameInstructions.classList.remove('success', 'error', 'warning', 'error-pulsing');
+            
+            allDice.forEach(die => die.element.classList.remove('disabled-interaction'));
+            hasRolledThisRound = true; 
+            
+            rollButton.disabled = true; 
+            await rollDice(allDice); 
+            
+            rollsLeft--; 
+            updateRollButtonText();
+            renderScoreTable(); 
+            
+            const currentDiceValues = allDice.map(d => d.value);
+            const possibleScores = calculatePossibleScores(currentDiceValues);
+            const hasAnyAvailableScorableCombo = Object.keys(combinations).some(comboName => {
+                const comboState = combinations[comboName];
+                if (comboState.used || comboState.eliminated) return false;
+                return possibleScores.hasOwnProperty(comboName); 
+            });
+
+            if (rollsLeft === 0 && !hasAnyAvailableScorableCombo) {
+                 gameInstructions.textContent = 'FIM DE ROLAGENS! Nenhuma combinação disponível para pontuar. Escolha uma para ELIMINAR na tabela.';
+                 gameInstructions.classList.add('error', 'error-pulsing');
+                 finalizeRoundWithElimination();
+            } else if (!hasAnyAvailableScorableCombo && rollsLeft > 0) {
+                 gameInstructions.textContent = `Nenhuma combinação pontuável. Tente rolar novamente!`;
+                 gameInstructions.classList.add('warning');
+                 rollButton.disabled = false; 
+            } else {
+                 gameInstructions.textContent = `Selecione uma combinação para pontuar ou ROLAR NOVAMENTE!`;
+                 gameInstructions.classList.remove('warning', 'error', 'success', 'error-pulsing');
+                 rollButton.disabled = false; 
+            }
+
+            if (rollsLeft === 0 && hasAnyAvailableScorableCombo) {
+                rollButton.disabled = true; 
+                gameInstructions.textContent = 'FIM DE ROLAGENS! Selecione uma combinação para pontuar.';
+                gameInstructions.classList.remove('error-pulsing');
+            }
+        }
+
+        function showFinalResults() {
+            console.log('showFinalResults: Exibindo resultados finais.');
+            scoreInfoModal.style.display = 'none';
+
+            // Limpa o conteúdo principal
+            mainContentContainer.innerHTML = ''; 
+            
+            const resultsScreen = document.createElement('div');
+            resultsScreen.id = 'final-results-screen';
+            mainContentContainer.appendChild(resultsScreen);
+
+            const title = document.createElement('h2');
+            title.textContent = 'FIM DE JOGO!';
+            resultsScreen.appendChild(title);
+
+            const finalScoreP = document.createElement('p');
+            finalScoreP.textContent = `Sua Pontuação Final: ${totalGameScore} pontos!`;
+            resultsScreen.appendChild(finalScoreP);
+
+            const combosList = document.createElement('ul');
+            resultsScreen.appendChild(combosList);
+
+            for (const name in combinations) {
+                const combo = combinations[name];
+                const listItem = document.createElement('li');
+                
+                let statusIcon = '';
+                let statusText = '';
+                let className = '';
+
+                if (combo.used) {
+                    statusIcon = '✅';
+                    statusText = `Pontuado: ${combo.lastScore}`;
+                    className = 'scored-item';
+                } else if (combo.eliminated) {
+                    statusIcon = '❌';
+                    statusText = 'Eliminado';
+                    className = 'eliminated-item';
+                } else {
+                    statusIcon = '➖';
+                    statusText = 'Não Utilizado';
+                    className = 'unused-item';
+                }
+
+                listItem.classList.add(className);
+                listItem.innerHTML = `<span class="status-icon">${statusIcon}</span> ${name} <span>${statusText}</span>`;
+                combosList.appendChild(listItem);
+            }
+
+            const playAgainButton = document.createElement('button');
+            playAgainButton.id = 'play-again-button';
+            playAgainButton.textContent = 'Jogar Novamente';
+            playAgainButton.addEventListener('click', initializeGame); 
+            resultsScreen.appendChild(playAgainButton);
+            console.log('showFinalResults: Resultados finais exibidos.');
+        }
+
+        function finalizeRoundWithElimination() {
+            console.log('finalizeRoundWithElimination: Entrou no modo de eliminação.');
+            rollButton.disabled = true; // Botão de rolagem desabilitado
+            
+            // Habilita os botões de eliminação na tabela e desabilita os de pontuação
+            renderScoreTable(true); // true para indicar modo de eliminação
+        }
+
+        function eliminateCombination(combinationName) {
+            console.log(`eliminateCombination: Eliminando ${combinationName}`);
+            if (!combinations[combinationName].used && !combinations[combinationName].eliminated) {
+                combinations[combinationName].eliminated = true;
+                gameInstructions.textContent = `Combinação "${combinationName}" eliminada.`;
+                gameInstructions.classList.remove('error', 'error-pulsing');
+                gameInstructions.classList.add('warning'); // Mensagem de aviso para a eliminação
+                
+                renderScoreTable(); // Re-renderiza para atualizar o estado visual da tabela
+
+                const remainingAvailable = Object.values(combinations).filter(c => !c.used && !c.eliminated);
+                if (remainingAvailable.length === 0) {
+                    showFinalResults();
+                } else {
+                    currentRound++;
+                    resetRound(); 
+                }
+            } else {
+                gameInstructions.textContent = 'Essa combinação já foi usada ou eliminada.';
+                gameInstructions.classList.add('error');
+                setTimeout(() => gameInstructions.classList.remove('error'), 2000);
+            }
+        }
+
+
+        // --- Event Listeners (para elementos estáticos e modais) ---
+
+        rulesButton.addEventListener('click', () => {
+            rulesModal.style.display = 'flex';
+        });
+
+        resetGameButton.addEventListener('click', () => {
+            newGameModal.style.display = 'flex';
+        });
+
+        confirmNewGameButton.addEventListener('click', () => {
+            newGameModal.style.display = 'none';
+            initializeGame(); // This will rebuild the game area and re-assign listeners
+        });
+
+        cancelNewGameButton.addEventListener('click', () => {
+            newGameModal.style.display = 'none';
+        });
+        
+        closeModalButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const modalId = button.dataset.modal || button.closest('.modal').id;
+                document.getElementById(modalId).style.display = 'none';
+                
+                // Only re-enable roll button if game is not over and not in elimination mode from a previous state
+                // This logic depends on 'rollButton' being correctly assigned.
+                if (rollButton && (rollsLeft > 0 || !hasRolledThisRound)) { 
+                     rollButton.disabled = false;
+                 }
+                 // Ensure table is updated after modal closes, as its state might have been locked
+                 renderScoreTable(); 
+            });
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === rulesModal) {
+                rulesModal.style.display = 'none';
+                renderScoreTable(); 
+            }
+            if (event.target === newGameModal) {
+                newGameModal.style.display = 'none';
+            }
+        });
+
+        // Inicia o jogo quando a página carrega
+        document.addEventListener('DOMContentLoaded', initializeGame);
+
+    </script>
+</body>
+</html>
